@@ -1,9 +1,3 @@
-Attention please!
-===================
-This library is not supported anymore. Please, check out nice living forks!
-Thanks for attention.
-
-
 AndroidTouchGallery
 ===================
 
