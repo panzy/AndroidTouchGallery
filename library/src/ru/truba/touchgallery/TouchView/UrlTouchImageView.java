@@ -25,13 +25,13 @@ import android.util.AttributeSet;
 import android.widget.ImageView.ScaleType;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
+import ru.truba.touchgallery.R;
+import ru.truba.touchgallery.TouchView.InputStreamWrapper.InputStreamProgressListener;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
-
-import ru.truba.touchgallery.R;
-import ru.truba.touchgallery.TouchView.InputStreamWrapper.InputStreamProgressListener;
 
 public class UrlTouchImageView extends RelativeLayout {
     protected ProgressBar mProgressBar;
@@ -84,6 +84,10 @@ public class UrlTouchImageView extends RelativeLayout {
     //No caching load
     public class ImageLoadTask extends AsyncTask<String, Integer, Bitmap>
     {
+        // limit max bmp size to avoid out-of-memory.
+        private final static int MAX_WIDTH = 1280;
+        private final static int MAX_HEIGHT = 720;
+
         @Override
         protected Bitmap doInBackground(String... strings) {
             String url = strings[0];
@@ -95,16 +99,14 @@ public class UrlTouchImageView extends RelativeLayout {
                 InputStream is = conn.getInputStream();
                 int totalLen = conn.getContentLength();
                 InputStreamWrapper bis = new InputStreamWrapper(is, 8192, totalLen);
-                bis.setProgressListener(new InputStreamProgressListener()
-				{					
-					@Override
-					public void onProgress(float progressValue, long bytesLoaded,
-							long bytesTotal)
-					{
-						publishProgress((int)(progressValue * 100));
-					}
-				});
-                bm = BitmapFactory.decodeStream(bis);
+                bis.setProgressListener(new InputStreamProgressListener() {
+                    @Override
+                    public void onProgress(float progressValue, long bytesLoaded,
+                                           long bytesTotal) {
+                        publishProgress((int) (progressValue * 100));
+                    }
+                });
+                bm = decodeBmp(bis);
                 bis.close();
                 is.close();
             } catch (Exception e) {
@@ -112,7 +114,7 @@ public class UrlTouchImageView extends RelativeLayout {
             }
             return bm;
         }
-        
+
         @Override
         protected void onPostExecute(Bitmap bitmap) {
         	if (bitmap == null) 
@@ -135,5 +137,44 @@ public class UrlTouchImageView extends RelativeLayout {
 		{
 			mProgressBar.setProgress(values[0]);
 		}
+
+        private Bitmap decodeBmp(InputStreamWrapper bis) throws IOException {
+            // First decode with inJustDecodeBounds=true to check dimensions
+            final BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            bis.mark(1024 * 8);
+            BitmapFactory.decodeStream(bis, null, options);
+
+            // Calculate inSampleSize
+            options.inSampleSize = calculateInSampleSize(options, MAX_WIDTH, MAX_HEIGHT);
+
+            // Decode bitmap with inSampleSize set
+            options.inJustDecodeBounds = false;
+            bis.reset();
+            return BitmapFactory.decodeStream(bis, null, options);
+        }
+
+        private int calculateInSampleSize(
+                BitmapFactory.Options options, int reqWidth, int reqHeight) {
+            // Raw height and width of image
+            final int height = options.outHeight;
+            final int width = options.outWidth;
+            int inSampleSize = 1;
+
+            if (height > reqHeight || width > reqWidth) {
+
+                final int halfHeight = height / 2;
+                final int halfWidth = width / 2;
+
+                // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+                // height and width larger than the requested height and width.
+                while ((halfHeight / inSampleSize) > reqHeight
+                        && (halfWidth / inSampleSize) > reqWidth) {
+                    inSampleSize *= 2;
+                }
+            }
+
+            return inSampleSize;
+        }
     }
 }
