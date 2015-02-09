@@ -28,8 +28,7 @@ import android.widget.RelativeLayout;
 import ru.truba.touchgallery.R;
 import ru.truba.touchgallery.TouchView.InputStreamWrapper.InputStreamProgressListener;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -99,21 +98,28 @@ public class UrlTouchImageView extends RelativeLayout {
             Bitmap bm = null;
             try {
                 URL aURL = new URL(url);
-                URLConnection conn = aURL.openConnection();
-                conn.connect();
-                InputStream is = conn.getInputStream();
-                int totalLen = conn.getContentLength();
-                InputStreamWrapper bis = new InputStreamWrapper(is, 8192, totalLen);
-                bis.setProgressListener(new InputStreamProgressListener() {
-                    @Override
-                    public void onProgress(float progressValue, long bytesLoaded,
-                                           long bytesTotal) {
-                        publishProgress((int) (progressValue * 100));
-                    }
-                });
-                bm = decodeBmp(bis);
-                bis.close();
-                is.close();
+                // although a URL of file protocol can also be handled properly by
+                // stream, to avoid temp file, we decode local file without using
+                // stream.
+                if (aURL.getProtocol().equals("file")) {
+                    bm = decodeBmp(aURL.getFile());
+                } else {
+                    URLConnection conn = aURL.openConnection();
+                    conn.connect();
+                    InputStream is = conn.getInputStream();
+                    int totalLen = conn.getContentLength();
+                    InputStreamWrapper bis = new InputStreamWrapper(is, 8192, totalLen);
+                    bis.setProgressListener(new InputStreamProgressListener() {
+                        @Override
+                        public void onProgress(float progressValue, long bytesLoaded,
+                                               long bytesTotal) {
+                            publishProgress((int) (progressValue * 100));
+                        }
+                    });
+                    bm = decodeBmp(bis);
+                    bis.close();
+                    is.close();
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -143,23 +149,53 @@ public class UrlTouchImageView extends RelativeLayout {
 			mProgressBar.setProgress(values[0]);
 		}
 
+        private void copy(InputStream in, File dst) throws IOException {
+
+            OutputStream out = new FileOutputStream(dst);
+
+            // Transfer bytes from in to out
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            in.close();
+            out.close();
+        }
+
         private Bitmap decodeBmp(InputStreamWrapper bis) throws IOException {
+            if (maxWidth > 0 && maxHeight > 0) {
+                // since we need to decode twice, and BufferedInputStream.reset() may
+                // raise "java.io.IOException: Mark has been invalidated" however the
+                // size parameter of mark() is, we dump the input stream to temp file.
+                File tmpFile = new File(getContext().getFilesDir().getAbsoluteFile() + "/" + Math.random());
+                copy(bis, tmpFile);
+                bis.close();
+                Bitmap bmp = decodeBmp(tmpFile.getAbsolutePath());
+                tmpFile.delete();
+                return bmp;
+            } else {
+                Bitmap bmp = BitmapFactory.decodeStream(bis);
+                bis.close();
+                return bmp;
+            }
+        }
+
+        private Bitmap decodeBmp(String filename) throws IOException {
             if (maxWidth > 0 && maxHeight > 0) {
                 // First decode with inJustDecodeBounds=true to check dimensions
                 final BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inJustDecodeBounds = true;
-                bis.mark(1024 * 8);
-                BitmapFactory.decodeStream(bis, null, options);
+                BitmapFactory.decodeFile(filename, options);
 
                 // Calculate inSampleSize
                 options.inSampleSize = calculateInSampleSize(options, maxWidth, maxHeight);
 
                 // Decode bitmap with inSampleSize set
                 options.inJustDecodeBounds = false;
-                bis.reset();
-                return BitmapFactory.decodeStream(bis, null, options);
+                return BitmapFactory.decodeFile(filename, options);
             } else {
-                return BitmapFactory.decodeStream(bis);
+                return BitmapFactory.decodeFile(filename);
             }
         }
 
