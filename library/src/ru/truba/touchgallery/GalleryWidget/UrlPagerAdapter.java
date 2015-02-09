@@ -17,12 +17,11 @@
  */
 package ru.truba.touchgallery.GalleryWidget;
 
-import java.util.List;
-
 import android.content.Context;
-import android.view.View;
 import android.view.ViewGroup;
 import ru.truba.touchgallery.TouchView.UrlTouchImageView;
+
+import java.util.List;
 
 
 /**
@@ -30,21 +29,52 @@ import ru.truba.touchgallery.TouchView.UrlTouchImageView;
  */
 public class UrlPagerAdapter extends BasePagerAdapter {
 
+    // image size limit
+    int maxWidth = 1280;
+    int maxHeight = 720;
+    int maxPreloadWidth = 320;
+    int maxPreloadHeight = 240;
+
+    UrlTouchImageView currUrlTouchImageView;
+
 	public UrlPagerAdapter(Context context, List<String> resources)
 	{
 		super(context, resources);
 	}
 
+    /**
+     * Set max size of decoded bitmap.
+     * @param width
+     * @param height
+     * @param preloadWidth size for non-current item.
+     * @param preloadHeight size for non-current item.
+     */
+    public void setBmpSizeLimit(int width, int height, int preloadWidth, int preloadHeight) {
+        maxWidth = width;
+        maxHeight = height;
+        maxPreloadWidth = preloadWidth;
+        maxPreloadHeight = preloadHeight;
+    }
+
     @Override
     public void setPrimaryItem(ViewGroup container, int position, Object object) {
+        if (currUrlTouchImageView != null && mCurrentPosition != position) {
+            currUrlTouchImageView.setUrl(mResources.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
+        }
+
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
+        ((UrlTouchImageView)object).setUrl(mResources.get(position), maxWidth, maxHeight);
+        currUrlTouchImageView = (UrlTouchImageView)object;
     }
 
     @Override
     public Object instantiateItem(ViewGroup collection, final int position){
         final UrlTouchImageView iv = new UrlTouchImageView(mContext);
-        iv.setUrl(mResources.get(position));
+        if (position == mCurrentPosition)
+            iv.setUrl(mResources.get(position), maxWidth, maxHeight);
+        else
+            iv.setUrl(mResources.get(position), maxPreloadWidth, maxPreloadHeight);
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         collection.addView(iv, 0);

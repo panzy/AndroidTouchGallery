@@ -72,11 +72,11 @@ public class UrlTouchImageView extends RelativeLayout {
         this.addView(mProgressBar);
     }
 
-    public void setUrl(String imageUrl)
+    public void setUrl(String imageUrl, int maxWidth, int maxHeight)
     {
-        new ImageLoadTask().execute(imageUrl);
+        new ImageLoadTask().setSizeLimit(maxWidth, maxHeight).execute(imageUrl);
     }
-    
+
     public void setScaleType(ScaleType scaleType) {
         mImageView.setScaleType(scaleType);
     }
@@ -84,9 +84,14 @@ public class UrlTouchImageView extends RelativeLayout {
     //No caching load
     public class ImageLoadTask extends AsyncTask<String, Integer, Bitmap>
     {
-        // limit max bmp size to avoid out-of-memory.
-        private final static int MAX_WIDTH = 1280;
-        private final static int MAX_HEIGHT = 720;
+        int maxWidth;
+        int maxHeight;
+
+        public ImageLoadTask setSizeLimit(int w, int h) {
+            maxWidth = w;
+            maxHeight = h;
+            return this;
+        }
 
         @Override
         protected Bitmap doInBackground(String... strings) {
@@ -139,19 +144,23 @@ public class UrlTouchImageView extends RelativeLayout {
 		}
 
         private Bitmap decodeBmp(InputStreamWrapper bis) throws IOException {
-            // First decode with inJustDecodeBounds=true to check dimensions
-            final BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            bis.mark(1024 * 8);
-            BitmapFactory.decodeStream(bis, null, options);
+            if (maxWidth > 0 && maxHeight > 0) {
+                // First decode with inJustDecodeBounds=true to check dimensions
+                final BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
+                bis.mark(1024 * 8);
+                BitmapFactory.decodeStream(bis, null, options);
 
-            // Calculate inSampleSize
-            options.inSampleSize = calculateInSampleSize(options, MAX_WIDTH, MAX_HEIGHT);
+                // Calculate inSampleSize
+                options.inSampleSize = calculateInSampleSize(options, maxWidth, maxHeight);
 
-            // Decode bitmap with inSampleSize set
-            options.inJustDecodeBounds = false;
-            bis.reset();
-            return BitmapFactory.decodeStream(bis, null, options);
+                // Decode bitmap with inSampleSize set
+                options.inJustDecodeBounds = false;
+                bis.reset();
+                return BitmapFactory.decodeStream(bis, null, options);
+            } else {
+                return BitmapFactory.decodeStream(bis);
+            }
         }
 
         private int calculateInSampleSize(

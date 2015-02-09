@@ -1,13 +1,11 @@
 package ru.truba.touchgallery.GalleryWidget;
 
 import android.content.Context;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import ru.truba.touchgallery.TouchView.UrlTouchImageView;
 
 import java.util.List;
-
-import ru.truba.touchgallery.TouchView.UrlTouchImageView;
 
 /**
  * Created by fabio on 28/05/14.
@@ -39,7 +37,10 @@ public class InfinityUrlAdapter extends BasePagerAdapter {
 
         position = position % TOTAL_PAGES;
         final UrlTouchImageView iv = new UrlTouchImageView(mContext);
-        iv.setUrl(mResources.get(position));
+        if (position == mCurrentPosition)
+            iv.setUrl(mResources.get(position), -1, -1);
+        else
+            iv.setUrl(mResources.get(position), 10, 10);
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         if(mScaleType != null)
             iv.setScaleType(mScaleType);
