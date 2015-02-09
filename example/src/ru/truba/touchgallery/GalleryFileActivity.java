@@ -18,17 +18,14 @@
 package ru.truba.touchgallery;
 
 import android.app.Activity;
+import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Toast;
-import ru.truba.touchgallery.GalleryWidget.FilePagerAdapter;
-import ru.truba.touchgallery.GalleryWidget.GalleryViewPager;
 import ru.truba.touchgallery.GalleryWidget.BasePagerAdapter.OnItemChangeListener;
+import ru.truba.touchgallery.GalleryWidget.UrlPagerAdapter;
+import ru.truba.touchgallery.GalleryWidget.GalleryViewPager;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,14 +47,14 @@ public class GalleryFileActivity extends Activity {
 	        	{
 	        		String path = getFilesDir() + "/" + filename;
 	        		copy(getAssets().open(filename), new File(path) );
-	        		items.add(path);
+	        		items.add(Uri.fromFile(new File(path)).toString());
 	        	}
 	        }
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
-        FilePagerAdapter pagerAdapter = new FilePagerAdapter(this, items);
+        UrlPagerAdapter pagerAdapter = new UrlPagerAdapter(this, items);
         pagerAdapter.setOnItemChangeListener(new OnItemChangeListener()
 		{
 			@Override
