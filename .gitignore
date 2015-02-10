@@ -183,3 +183,5 @@ bin/
 gen/
 target/
 
+#there're some very large image for testing OOM.
+example/assets/large_*.jpg
