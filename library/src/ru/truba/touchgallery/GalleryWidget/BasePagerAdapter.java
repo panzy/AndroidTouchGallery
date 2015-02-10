@@ -47,6 +47,16 @@ public class BasePagerAdapter extends PagerAdapter {
         this.mContext = context;
     }
 
+    /**
+     * <ol>
+     *     <li>mCurrentPosition will be changed.</li>
+     *     <li>GalleryViewPager.mCurrentView.resetScale() will be called.</li>
+     *     <li>OnItemChangeListener will be invoked.</li>
+     * </ol>
+     * @param container
+     * @param position
+     * @param object
+     */
     @Override
     public void setPrimaryItem(ViewGroup container, final int position, Object object) {
         super.setPrimaryItem(container, position, object);

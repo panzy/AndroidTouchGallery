@@ -62,9 +62,11 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             currUrlTouchImageView.setUrl(mResources.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
         }
 
+        if (mCurrentPosition != position)
+            ((UrlTouchImageView)object).setUrl(mResources.get(position), maxWidth, maxHeight);
+
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
-        ((UrlTouchImageView)object).setUrl(mResources.get(position), maxWidth, maxHeight);
         currUrlTouchImageView = (UrlTouchImageView)object;
     }
 
