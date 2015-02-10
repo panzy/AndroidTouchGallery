@@ -33,10 +33,12 @@ import java.net.URL;
 import java.net.URLConnection;
 
 public class UrlTouchImageView extends RelativeLayout {
+    private static final String TAG = "UrlTouchImageView";
     protected ProgressBar mProgressBar;
     protected TouchImageView mImageView;
 
     protected Context mContext;
+    protected Bitmap mBmp;
 
     public UrlTouchImageView(Context ctx)
     {
@@ -128,7 +130,12 @@ public class UrlTouchImageView extends RelativeLayout {
 
         @Override
         protected void onPostExecute(Bitmap bitmap) {
-        	if (bitmap == null) 
+            if (mBmp != null) {
+//                Log.i(TAG, "recycle bmp, " + mBmp.getByteCount() + " bytes");
+                mBmp.recycle();
+            }
+
+        	if (bitmap == null)
         	{
         		mImageView.setScaleType(ScaleType.CENTER);
         		bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.no_photo);
@@ -141,6 +148,8 @@ public class UrlTouchImageView extends RelativeLayout {
         	}
             mImageView.setVisibility(VISIBLE);
             mProgressBar.setVisibility(GONE);
+
+            mBmp = bitmap;
         }
 
 		@Override
