@@ -141,7 +141,12 @@ public class GalleryViewPager extends ViewPager {
         float [] difference = handleMotionEvent(event);
 
         if (mCurrentView.pagerCanScroll()) {
-            return super.onInterceptTouchEvent(event);
+            try {
+                return super.onInterceptTouchEvent(event);
+            } catch (IllegalArgumentException e) {
+                // java.lang.IllegalArgumentException: pointerIndex out of range
+                e.printStackTrace();
+            }
         }
         else {
             if (difference != null && mCurrentView.onRightSide && difference[0] < 0) //move right
