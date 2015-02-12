@@ -21,6 +21,9 @@ import android.content.Context;
 import android.view.ViewGroup;
 import ru.truba.touchgallery.TouchView.UrlTouchImageView;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -37,10 +40,45 @@ public class UrlPagerAdapter extends BasePagerAdapter {
 
     UrlTouchImageView currUrlTouchImageView;
 
-	public UrlPagerAdapter(Context context, List<String> resources)
+    protected final List<URL> mUrls;
+
+    /**
+     * @param context
+     * @param urls
+     * @param dummy not used
+     */
+	public UrlPagerAdapter(Context context, List<URL> urls, int dummy)
 	{
-		super(context, resources);
+        super(context, urls2literals(urls));
+        mUrls = urls;
 	}
+
+    public UrlPagerAdapter(Context context, List<String> urls)
+    {
+        super(context, urls);
+        mUrls = literals2urls(urls);
+    }
+
+    private static List<String> urls2literals(List<URL> urls) {
+        List<String> literals = new ArrayList<>(urls.size());
+        for (URL url : urls) {
+            literals.add(url.toExternalForm());
+        }
+        return literals;
+    }
+
+    private static List<URL> literals2urls(List<String> literalUrls) {
+        List<URL> urls = new ArrayList<>(literalUrls.size());
+        for (String url : literalUrls) {
+            try {
+                urls.add(new URL(url));
+            }
+            catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+        }
+        return urls;
+    }
 
     /**
      * Set max size of decoded bitmap.
@@ -59,11 +97,11 @@ public class UrlPagerAdapter extends BasePagerAdapter {
     @Override
     public void setPrimaryItem(ViewGroup container, int position, Object object) {
         if (currUrlTouchImageView != null && mCurrentPosition != position) {
-            currUrlTouchImageView.setUrl(mResources.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
+            currUrlTouchImageView.setUrl(mUrls.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
         }
 
         if (mCurrentPosition != position)
-            ((UrlTouchImageView)object).setUrl(mResources.get(position), maxWidth, maxHeight);
+            ((UrlTouchImageView)object).setUrl(mUrls.get(position), maxWidth, maxHeight);
 
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
@@ -74,9 +112,9 @@ public class UrlPagerAdapter extends BasePagerAdapter {
     public Object instantiateItem(ViewGroup collection, final int position){
         final UrlTouchImageView iv = new UrlTouchImageView(mContext);
         if (position == mCurrentPosition)
-            iv.setUrl(mResources.get(position), maxWidth, maxHeight);
+            iv.setUrl(mUrls.get(position), maxWidth, maxHeight);
         else
-            iv.setUrl(mResources.get(position), maxPreloadWidth, maxPreloadHeight);
+            iv.setUrl(mUrls.get(position), maxPreloadWidth, maxPreloadHeight);
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         collection.addView(iv, 0);

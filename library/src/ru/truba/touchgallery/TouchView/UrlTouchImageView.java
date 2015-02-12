@@ -29,6 +29,7 @@ import ru.truba.touchgallery.R;
 import ru.truba.touchgallery.TouchView.InputStreamWrapper.InputStreamProgressListener;
 
 import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -75,6 +76,16 @@ public class UrlTouchImageView extends RelativeLayout {
 
     public void setUrl(String imageUrl, int maxWidth, int maxHeight)
     {
+        try {
+            setUrl(new URL(imageUrl), maxWidth, maxHeight);
+        }
+        catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void setUrl(URL imageUrl, int maxWidth, int maxHeight)
+    {
         new ImageLoadTask().setSizeLimit(maxWidth, maxHeight).execute(imageUrl);
     }
 
@@ -83,7 +94,7 @@ public class UrlTouchImageView extends RelativeLayout {
     }
     
     //No caching load
-    public class ImageLoadTask extends AsyncTask<String, Integer, Bitmap>
+    public class ImageLoadTask extends AsyncTask<URL, Integer, Bitmap>
     {
         int maxWidth;
         int maxHeight;
@@ -95,11 +106,14 @@ public class UrlTouchImageView extends RelativeLayout {
         }
 
         @Override
-        protected Bitmap doInBackground(String... strings) {
-            String url = strings[0];
+        protected Bitmap doInBackground(URL... urls) {
+            URL aURL = urls[0];
             Bitmap bm = null;
+
+            if (aURL == null)
+                return bm;
+
             try {
-                URL aURL = new URL(url);
                 // although a URL of file protocol can also be handled properly by
                 // stream, to avoid temp file, we decode local file without using
                 // stream.
