@@ -22,6 +22,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.util.AttributeSet;
+import android.util.Base64;
+import android.util.Log;
 import android.widget.ImageView.ScaleType;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -32,6 +34,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.LinkedList;
 
 public class UrlTouchImageView extends RelativeLayout {
     private static final String TAG = "UrlTouchImageView";
@@ -40,6 +43,8 @@ public class UrlTouchImageView extends RelativeLayout {
 
     protected Context mContext;
     protected Bitmap mBmp;
+
+    LinkedList<String> cachedFiles = new LinkedList<>();
 
     public UrlTouchImageView(Context ctx)
     {
@@ -120,21 +125,32 @@ public class UrlTouchImageView extends RelativeLayout {
                 if (aURL.getProtocol().equals("file")) {
                     bm = decodeBmp(aURL.getFile());
                 } else {
-                    URLConnection conn = aURL.openConnection();
-                    conn.connect();
-                    InputStream is = conn.getInputStream();
-                    int totalLen = conn.getContentLength();
-                    InputStreamWrapper bis = new InputStreamWrapper(is, 8192, totalLen);
-                    bis.setProgressListener(new InputStreamProgressListener() {
-                        @Override
-                        public void onProgress(float progressValue, long bytesLoaded,
-                                               long bytesTotal) {
-                            publishProgress((int) (progressValue * 100));
-                        }
-                    });
-                    bm = decodeBmp(bis);
-                    bis.close();
-                    is.close();
+                    String cachePath = getCachePath(aURL);
+                    if (new File(cachePath).exists()) {
+                        bm = decodeBmp(cachePath);
+                    }
+
+                    if (bm == null) {
+                        URLConnection conn = aURL.openConnection();
+                        conn.connect();
+                        InputStream is = conn.getInputStream();
+                        int totalLen = conn.getContentLength();
+                        InputStreamWrapper bis = new InputStreamWrapper(is, 8192, totalLen);
+                        bis.setProgressListener(new InputStreamProgressListener() {
+                            @Override
+                            public void onProgress(float progressValue, long bytesLoaded,
+                                                   long bytesTotal) {
+                                publishProgress((int) (progressValue * 100));
+                            }
+                        });
+
+                        copy(bis, new File(cachePath));
+                        bm = decodeBmp(cachePath);
+                        cachedFiles.add(cachePath);
+
+                        bis.close();
+                        is.close();
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -186,24 +202,6 @@ public class UrlTouchImageView extends RelativeLayout {
             out.close();
         }
 
-        private Bitmap decodeBmp(InputStreamWrapper bis) throws IOException {
-            if (maxWidth > 0 && maxHeight > 0) {
-                // since we need to decode twice, and BufferedInputStream.reset() may
-                // raise "java.io.IOException: Mark has been invalidated" however the
-                // size parameter of mark() is, we dump the input stream to temp file.
-                File tmpFile = new File(getContext().getFilesDir().getAbsoluteFile() + "/" + Math.random());
-                copy(bis, tmpFile);
-                bis.close();
-                Bitmap bmp = decodeBmp(tmpFile.getAbsolutePath());
-                tmpFile.delete();
-                return bmp;
-            } else {
-                Bitmap bmp = BitmapFactory.decodeStream(bis);
-                bis.close();
-                return bmp;
-            }
-        }
-
         private Bitmap decodeBmp(String filename) throws IOException {
             if (maxWidth > 0 && maxHeight > 0) {
                 // First decode with inJustDecodeBounds=true to check dimensions
@@ -244,5 +242,24 @@ public class UrlTouchImageView extends RelativeLayout {
 
             return inSampleSize;
         }
+    }
+
+    private String getCachePath(URL url) {
+        return getContext().getFilesDir().getAbsoluteFile() + "/"
+                + Base64.encodeToString(url.toString().getBytes(), 0);
+    }
+
+    private void deleteCacheFiles() {
+        Log.d(TAG, "deleteCacheFiles");
+        for (String path : cachedFiles) {
+            new File(path).delete();
+        }
+        cachedFiles.clear();
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        deleteCacheFiles();
+        super.finalize();
     }
 }
