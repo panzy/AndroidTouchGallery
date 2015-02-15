@@ -237,11 +237,11 @@ public class UrlTouchImageView extends RelativeLayout {
                 final int halfWidth = width / 2;
 
                 // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-                // height and width larger than the requested height and width.
-                while ((halfHeight / inSampleSize) > reqHeight
-                        && (halfWidth / inSampleSize) > reqWidth) {
+                // height and width smaller than the requested height and width.
+                do {
                     inSampleSize *= 2;
-                }
+                } while ((halfHeight / inSampleSize) > reqHeight
+                        && (halfWidth / inSampleSize) > reqWidth);
             }
 
             return inSampleSize;
