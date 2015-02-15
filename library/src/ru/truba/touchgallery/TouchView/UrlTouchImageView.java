@@ -43,6 +43,7 @@ public class UrlTouchImageView extends RelativeLayout {
 
     protected Context mContext;
     protected Bitmap mBmp;
+    public static int bmpCnt = 0;
 
     LinkedList<String> cachedFiles = new LinkedList<>();
 
@@ -160,10 +161,13 @@ public class UrlTouchImageView extends RelativeLayout {
 
         @Override
         protected void onPostExecute(Bitmap bitmap) {
-            if (mBmp != null) {
-//                Log.i(TAG, "recycle bmp, " + mBmp.getByteCount() + " bytes");
-                mBmp.recycle();
+            if (bitmap != null) {
+                ++bmpCnt;
+                Log.i(TAG, "decode bmp, " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", bmp cnt = " + bmpCnt);
             }
+
+            // recycle old
+            recycleBmp();
 
         	if (bitmap == null)
         	{
@@ -255,6 +259,15 @@ public class UrlTouchImageView extends RelativeLayout {
             new File(path).delete();
         }
         cachedFiles.clear();
+    }
+
+    public void recycleBmp() {
+        if (mBmp != null) {
+            --bmpCnt;
+            Log.i(TAG, "recycle bmp, " + mBmp.getWidth() + "x" + mBmp.getHeight() + ", bmp cnt = " + bmpCnt);
+            mBmp.recycle();
+            mBmp = null;
+        }
     }
 
     @Override

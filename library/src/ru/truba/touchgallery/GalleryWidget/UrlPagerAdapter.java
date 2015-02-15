@@ -18,6 +18,7 @@
 package ru.truba.touchgallery.GalleryWidget;
 
 import android.content.Context;
+import android.view.View;
 import android.view.ViewGroup;
 import ru.truba.touchgallery.TouchView.UrlTouchImageView;
 
@@ -106,6 +107,13 @@ public class UrlPagerAdapter extends BasePagerAdapter {
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
         currUrlTouchImageView = (UrlTouchImageView)object;
+    }
+
+    @Override
+    public void destroyItem(ViewGroup collection, int position, Object view) {
+        collection.removeView((View) view);
+        if (view instanceof UrlTouchImageView)
+            ((UrlTouchImageView)view).recycleBmp();
     }
 
     @Override
