@@ -17,10 +17,6 @@
  */
 package ru.truba.touchgallery.TouchView;
 
-import java.lang.ref.WeakReference;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -36,6 +32,10 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
+
+import java.lang.ref.WeakReference;
+import java.util.Timer;
+import java.util.TimerTask;
 
 @SuppressLint("NewApi")
 public class TouchImageView extends ImageView {
@@ -58,7 +58,20 @@ public class TouchImageView extends ImageView {
     int mode = NONE;
 
     float redundantXSpace, redundantYSpace;
-    float right, bottom, origWidth, origHeight, bmWidth, bmHeight;
+    /**
+     * the X position of image should be between [-right, 0].
+     */
+    float right, bottom;
+    /**
+     * <ul>
+     * <li> origWidth = width - 2 * redundantXSpace;</li>
+     * <li> origHeight = height - 2 * redundantYSpace;</li>
+     * </ul>
+     */
+    float origWidth, origHeight;
+    /** bitmap size */
+    float bmWidth, bmHeight;
+    /** View size */
     float width, height;
     PointF last = new PointF();
     PointF mid = new PointF();
@@ -67,8 +80,8 @@ public class TouchImageView extends ImageView {
     float matrixX, matrixY;
 
     float saveScale = 1f;
-    float minScale = 1f;
-    float maxScale = 3f;
+    final float minScale = 1f;
+    final float maxScale = 3f;
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
