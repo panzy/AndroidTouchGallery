@@ -22,8 +22,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Toast;
 import ru.truba.touchgallery.GalleryWidget.BasePagerAdapter.OnItemChangeListener;
-import ru.truba.touchgallery.GalleryWidget.UrlPagerAdapter;
 import ru.truba.touchgallery.GalleryWidget.GalleryViewPager;
+import ru.truba.touchgallery.GalleryWidget.UrlPagerAdapter;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ public class GalleryFileActivity extends Activity {
 	
 	        for (String filename : urls) 
 	        {
-	        	if (filename.matches(".+\\.jpg")) 
+	        	if (filename.matches(".+\\.(jpg|png)"))
 	        	{
 	        		String path = getFilesDir() + "/" + filename;
 	        		copy(getAssets().open(filename), new File(path) );

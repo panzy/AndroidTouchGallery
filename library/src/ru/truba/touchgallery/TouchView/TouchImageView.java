@@ -19,20 +19,20 @@ package ru.truba.touchgallery.TouchView;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.PointF;
+import android.graphics.*;
 import android.os.Build;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
 import android.util.FloatMath;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
 
+import java.io.*;
 import java.lang.ref.WeakReference;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -73,6 +73,13 @@ public class TouchImageView extends ImageView {
     float bmWidth, bmHeight;
     /** View size */
     float width, height;
+
+    Bitmap overlapBmp;
+    BitmapRegionDecoder regionDecoder;
+    Rect currVisibleRegion = new Rect();
+    Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+
+
     PointF last = new PointF();
     PointF mid = new PointF();
     PointF start = new PointF();
@@ -81,7 +88,7 @@ public class TouchImageView extends ImageView {
 
     float saveScale = 1f;
     final float minScale = 1f;
-    final float maxScale = 3f;
+    final float maxScale = 4.0f;
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
@@ -127,6 +134,7 @@ public class TouchImageView extends ImageView {
     
 	protected void init()
     {
+//        bmpPaint.setAlpha(100); // half transparent for testing
 		mTimerHandler = new TimeHandler(this);
         matrix.setTranslate(1f, 1f);
         m = new float[9];
@@ -278,6 +286,7 @@ public class TouchImageView extends ImageView {
                 }
 
                 setImageMatrix(matrix);
+                clipBmpRegion();
                 invalidate();
                 return false;
             }
@@ -295,6 +304,7 @@ public class TouchImageView extends ImageView {
         scaleMatrixToBounds();
 
         setImageMatrix(matrix);
+        clipBmpRegion();
         invalidate();
     }
     public boolean pagerCanScroll()
@@ -306,7 +316,14 @@ public class TouchImageView extends ImageView {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+
+        if (overlapBmp != null) {
+//            canvas.drawBitmap(overlapBmp, 0, 0, bmpPaint);
+            canvas.drawBitmap(overlapBmp, null, new RectF( 0, 0, width, height), bmpPaint);
+        }
+
         if (!allowInert) return;
+
         final float deltaX = lastDelta.x * velocity, deltaY = lastDelta.y * velocity;
         if (deltaX > width || deltaY > height)
         {
@@ -384,10 +401,16 @@ public class TouchImageView extends ImageView {
     }
     @Override
     public void setImageBitmap(Bitmap bm) {
+        setImageBitmap(bm, null);
+    }
+
+    public void setImageBitmap(Bitmap bm, BitmapRegionDecoder decoder) {
         super.setImageBitmap(bm);
         bmWidth = bm.getWidth();
         bmHeight = bm.getHeight();
+        regionDecoder = decoder;
     }
+
     @Override
     protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec)
     {
@@ -442,6 +465,86 @@ public class TouchImageView extends ImageView {
         float x = event.getX(0) + event.getX(1);
         float y = event.getY(0) + event.getY(1);
         return new PointF(x / 2, y / 2);
+    }
+
+    private static boolean rectEquals(Rect a, Rect b) {
+        return a.top == b.top && a.right == b.right
+                && a.bottom == b.bottom && a.left == b.left;
+    }
+
+    private void clipBmpRegion() {
+        if (regionDecoder == null)
+            return;
+
+        final float subsampleRate = bmWidth / regionDecoder.getWidth();
+
+        if (subsampleRate >= 1)
+            return;
+
+        matrix.getValues(m);
+
+        Log.d("scale", "savedScale = " + saveScale + ", matrix scale = " + m[Matrix.MSCALE_X]);
+
+        RectF rect;
+        // rect1
+        rect = new RectF();
+        rect.left = -m[Matrix.MTRANS_X];
+        rect.top = -m[Matrix.MTRANS_Y];
+        rect.right = rect.left + width;
+        rect.bottom = rect.top + height;
+        Log.d("scale", "rect 1 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+
+        // rect2
+        rect.left /= m[Matrix.MSCALE_X];
+        rect.top /= m[Matrix.MSCALE_Y];
+        rect.right /= m[Matrix.MSCALE_X];
+        rect.bottom /= m[Matrix.MSCALE_Y];
+        Log.d("scale", "rect 2 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+
+        // rect3
+        rect.left /= subsampleRate;
+        rect.right /= subsampleRate;
+        rect.top /= subsampleRate;
+        rect.bottom /= subsampleRate;
+        Log.d("scale", "rect 3 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+
+        Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
+
+        if (!rectEquals(currVisibleRegion, visibleRect)) {
+            currVisibleRegion = visibleRect;
+            Log.d("scale", String.format("scale %.2f, region %d,%d,%d,%d",
+                    saveScale,
+                    visibleRect.left,
+                    visibleRect.top,
+                    visibleRect.width(),
+                    visibleRect.height()));
+
+            if (m[Matrix.MSCALE_X] > 1.2f && bmWidth < regionDecoder.getWidth()) {
+                overlapBmp = regionDecoder.decodeRegion(visibleRect, null);
+
+                // dump for testing
+                if (false) dumpOverlapBmp();
+            } else {
+                overlapBmp = null;
+            }
+        }
+    }
+
+    private void dumpOverlapBmp() {
+        try {
+            OutputStream os = new FileOutputStream(new File(
+                    Environment.getExternalStorageDirectory() +
+                            "/" + Environment.DIRECTORY_PICTURES +
+                            "/overlap.jpg"));
+            overlapBmp.compress(Bitmap.CompressFormat.JPEG, 100, os);
+            os.close();
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -513,11 +616,14 @@ public class TouchImageView extends ImageView {
                         matrix.postTranslate(0, -y);
                 }
             }
+
+            clipBmpRegion();
             return true;
 
         }
     }
-	static class TimeHandler extends Handler {
+
+    static class TimeHandler extends Handler {
 	    private final WeakReference<TouchImageView> mService; 
 
 	    TimeHandler(TouchImageView view) {

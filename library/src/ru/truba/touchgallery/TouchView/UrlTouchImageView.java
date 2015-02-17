@@ -20,7 +20,9 @@ package ru.truba.touchgallery.TouchView;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BitmapRegionDecoder;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Base64;
 import android.util.Log;
@@ -104,6 +106,7 @@ public class UrlTouchImageView extends RelativeLayout {
     {
         int maxWidth;
         int maxHeight;
+        BitmapRegionDecoder regionDecoder;
 
         public ImageLoadTask setSizeLimit(int w, int h) {
             maxWidth = w;
@@ -125,6 +128,8 @@ public class UrlTouchImageView extends RelativeLayout {
                 // stream.
                 if (aURL.getProtocol().equals("file")) {
                     bm = decodeBmp(aURL.getFile());
+                    if (Build.VERSION.SDK_INT >= 10)
+                        regionDecoder = BitmapRegionDecoder.newInstance(aURL.getFile(), true);
                 } else {
                     String cachePath = getCachePath(aURL);
                     if (new File(cachePath).exists()) {
@@ -152,6 +157,9 @@ public class UrlTouchImageView extends RelativeLayout {
                         bis.close();
                         is.close();
                     }
+
+                    if (Build.VERSION.SDK_INT >= 10)
+                        regionDecoder = BitmapRegionDecoder.newInstance(aURL.getFile(), true);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -173,12 +181,12 @@ public class UrlTouchImageView extends RelativeLayout {
         	{
         		mImageView.setScaleType(ScaleType.CENTER);
         		bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.no_photo);
-        		mImageView.setImageBitmap(bitmap);
+        		mImageView.setImageBitmap(bitmap, null);
         	}
         	else 
         	{
         		mImageView.setScaleType(ScaleType.MATRIX);
-	            mImageView.setImageBitmap(bitmap);
+	            mImageView.setImageBitmap(bitmap, regionDecoder);
         	}
             mImageView.setVisibility(VISIBLE);
             mProgressBar.setVisibility(GONE);
