@@ -517,14 +517,16 @@ public class TouchImageView extends ImageView {
         Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect)) {
-            currVisibleRegion = visibleRect;
-            Log.d("scale", String.format("clip region %d,%d %d*%d",
-                    visibleRect.left,
-                    visibleRect.top,
-                    visibleRect.width(),
-                    visibleRect.height()));
+            if (m[Matrix.MSCALE_X] > 1.2f
+                    && Math.min(rect.width(), rect.height()) < 3 * Math.min(bmWidth, bmHeight)) {
 
-            if (m[Matrix.MSCALE_X] > 1.2f && bmWidth < regionDecoder.getWidth()) {
+                currVisibleRegion = visibleRect;
+                Log.d("scale", String.format("clip region %d,%d %d*%d",
+                        visibleRect.left,
+                        visibleRect.top,
+                        visibleRect.width(),
+                        visibleRect.height()));
+
                 overlapBmp = regionDecoder.decodeRegion(visibleRect, null);
 
                 // dump for testing
