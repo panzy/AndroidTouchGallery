@@ -55,7 +55,7 @@ public class GalleryFileActivity extends Activity {
 		}
 
         UrlPagerAdapter pagerAdapter = new UrlPagerAdapter(this, items);
-        pagerAdapter.setBmpSizeLimit(1280, 720, 160, 120);
+        pagerAdapter.setBmpSizeLimit(1280, 720, 320, 240);
         pagerAdapter.setOnItemChangeListener(new OnItemChangeListener()
 		{
 			@Override
