@@ -90,7 +90,7 @@ public class TouchImageView extends ImageView {
 
     float saveScale = 1f;
     final float minScale = 1f;
-    final float maxScale = 32.0f;
+    float maxScale = 2.0f;
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
@@ -411,8 +411,16 @@ public class TouchImageView extends ImageView {
         bmWidth = bm.getWidth();
         bmHeight = bm.getHeight();
         regionDecoder = decoder;
-        origBmWidth = regionDecoder.getWidth();
-        origBmHeight = regionDecoder.getHeight();
+
+        if (regionDecoder != null) {
+            origBmWidth = regionDecoder.getWidth();
+            origBmHeight = regionDecoder.getHeight();
+            maxScale = Math.max(origBmWidth / bmWidth,
+                    Math.max(bmWidth / width, bmHeight / height));
+        } else {
+            origBmWidth = origBmHeight = 0;
+            maxScale = Math.max(bmWidth / width, bmHeight / height);
+        }
     }
 
     @Override
@@ -523,15 +531,18 @@ public class TouchImageView extends ImageView {
         Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect)) {
-            if (m[Matrix.MSCALE_X] > 1.5f) {
+            if (m[Matrix.MSCALE_X] > 1.1f) {
 
                 currVisibleRegion = visibleRect;
 
                 BitmapFactory.Options opt = new BitmapFactory.Options();
 
                 opt.inSampleSize = 1;
-                while (opt.inSampleSize * 2 < subsampleRate &&
-                        visibleRect.width() / opt.inSampleSize > width) {
+                int halfWidth = visibleRect.width() / 2;
+                int halfHeight = visibleRect.height() / 2;
+                while (opt.inSampleSize * 2 < subsampleRate
+                        && halfWidth > width * opt.inSampleSize
+                        && halfHeight > height * opt.inSampleSize) {
                     opt.inSampleSize *= 2;
                 }
 
