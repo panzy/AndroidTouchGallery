@@ -88,7 +88,7 @@ public class TouchImageView extends ImageView {
 
     float saveScale = 1f;
     final float minScale = 1f;
-    final float maxScale = 4.0f;
+    final float maxScale = 8.0f;
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
@@ -483,6 +483,7 @@ public class TouchImageView extends ImageView {
 
         matrix.getValues(m);
 
+        Log.d("scale", "---------------");
         Log.d("scale", "savedScale = " + saveScale + ", matrix scale = " + m[Matrix.MSCALE_X]);
 
         RectF rect;
@@ -492,28 +493,32 @@ public class TouchImageView extends ImageView {
         rect.top = -m[Matrix.MTRANS_Y];
         rect.right = rect.left + width;
         rect.bottom = rect.top + height;
-        Log.d("scale", "rect 1 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+        Log.d("scale", String.format("rect 1 = %d,%d %d*%d of canvas",
+                (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height()));
 
         // rect2
         rect.left /= m[Matrix.MSCALE_X];
         rect.top /= m[Matrix.MSCALE_Y];
         rect.right /= m[Matrix.MSCALE_X];
         rect.bottom /= m[Matrix.MSCALE_Y];
-        Log.d("scale", "rect 2 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+        Log.d("scale", String.format("rect 2 = %d,%d %d*%d of background image (%d*%d) ",
+                (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
+                (int)bmWidth, (int)bmHeight));
 
         // rect3
         rect.left /= subsampleRate;
         rect.right /= subsampleRate;
         rect.top /= subsampleRate;
         rect.bottom /= subsampleRate;
-        Log.d("scale", "rect 3 = " + rect.toString() + " size=" + rect.width() + "x" + rect.height());
+        Log.d("scale", String.format("rect 3 = %d,%d %d*%d of original image (%d*%d)",
+                (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
+                regionDecoder.getWidth(), regionDecoder.getHeight()));
 
         Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect)) {
             currVisibleRegion = visibleRect;
-            Log.d("scale", String.format("scale %.2f, region %d,%d,%d,%d",
-                    saveScale,
+            Log.d("scale", String.format("clip region %d,%d %d*%d",
                     visibleRect.left,
                     visibleRect.top,
                     visibleRect.width(),
