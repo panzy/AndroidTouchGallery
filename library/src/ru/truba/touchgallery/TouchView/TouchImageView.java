@@ -73,6 +73,8 @@ public class TouchImageView extends ImageView {
     float bmWidth, bmHeight;
     /** View size */
     float width, height;
+    /** original bmp size, retrieved from BitmapRegionDecoder. */
+    int origBmWidth, origBmHeight;
 
     Bitmap overlapBmp;
     BitmapRegionDecoder regionDecoder;
@@ -88,7 +90,7 @@ public class TouchImageView extends ImageView {
 
     float saveScale = 1f;
     final float minScale = 1f;
-    final float maxScale = 8.0f;
+    final float maxScale = 32.0f;
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
@@ -409,6 +411,8 @@ public class TouchImageView extends ImageView {
         bmWidth = bm.getWidth();
         bmHeight = bm.getHeight();
         regionDecoder = decoder;
+        origBmWidth = regionDecoder.getWidth();
+        origBmHeight = regionDecoder.getHeight();
     }
 
     @Override
@@ -476,15 +480,17 @@ public class TouchImageView extends ImageView {
         if (regionDecoder == null)
             return;
 
-        final float subsampleRate = bmWidth / regionDecoder.getWidth();
+        final float subsampleRate = origBmWidth / bmWidth ;
 
-        if (subsampleRate >= 1)
+        if (subsampleRate <= 1)
             return;
 
         matrix.getValues(m);
 
         Log.d("scale", "---------------");
-        Log.d("scale", "savedScale = " + saveScale + ", matrix scale = " + m[Matrix.MSCALE_X]);
+        Log.d("scale", "savedScale = " + saveScale
+                + ", matrix scale = " + m[Matrix.MSCALE_X]
+                + ", subsample rate = " + subsampleRate);
 
         RectF rect;
         // rect1
@@ -506,28 +512,38 @@ public class TouchImageView extends ImageView {
                 (int)bmWidth, (int)bmHeight));
 
         // rect3
-        rect.left /= subsampleRate;
-        rect.right /= subsampleRate;
-        rect.top /= subsampleRate;
-        rect.bottom /= subsampleRate;
+        rect.left *= subsampleRate;
+        rect.right *= subsampleRate;
+        rect.top *= subsampleRate;
+        rect.bottom *= subsampleRate;
         Log.d("scale", String.format("rect 3 = %d,%d %d*%d of original image (%d*%d)",
                 (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
-                regionDecoder.getWidth(), regionDecoder.getHeight()));
+                origBmWidth, origBmHeight));
 
         Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect)) {
-            if (m[Matrix.MSCALE_X] > 1.2f
-                    && Math.min(rect.width(), rect.height()) < 3 * Math.min(bmWidth, bmHeight)) {
+            if (m[Matrix.MSCALE_X] > 1.5f) {
 
                 currVisibleRegion = visibleRect;
-                Log.d("scale", String.format("clip region %d,%d %d*%d",
+
+                BitmapFactory.Options opt = new BitmapFactory.Options();
+
+                opt.inSampleSize = 1;
+                while (opt.inSampleSize * 2 < subsampleRate &&
+                        visibleRect.width() / opt.inSampleSize > width) {
+                    opt.inSampleSize *= 2;
+                }
+
+                Log.d("scale", String.format("clip region %d,%d %d*%d with inSampleSize=%d",
                         visibleRect.left,
                         visibleRect.top,
                         visibleRect.width(),
-                        visibleRect.height()));
+                        visibleRect.height(),
+                        opt.inSampleSize));
 
-                overlapBmp = regionDecoder.decodeRegion(visibleRect, null);
+
+                overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
 
                 // dump for testing
                 if (false) dumpOverlapBmp();
