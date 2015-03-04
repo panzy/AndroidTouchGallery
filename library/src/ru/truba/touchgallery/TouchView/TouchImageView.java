@@ -330,6 +330,7 @@ public class TouchImageView extends ImageView {
 
         if (!allowInert) return;
 
+        // translate as inertance
         final float deltaX = lastDelta.x * velocity, deltaY = lastDelta.y * velocity;
         if (deltaX > width || deltaY > height)
         {
@@ -339,6 +340,15 @@ public class TouchImageView extends ImageView {
         if (Math.abs(deltaX) < 0.1 && Math.abs(deltaY) < 0.1) return;
         checkAndSetTranslate(deltaX, deltaY);
         setImageMatrix(matrix);
+
+        // re-clip after inertance stopped
+        final float nextDeltaX = lastDelta.x * velocity, nextDeltaY = lastDelta.y * velocity;
+        if (Math.abs(nextDeltaX) < 0.1 && Math.abs(nextDeltaY) < 0.1) {
+            clipBmpRegion();
+            invalidate();
+        } else {
+            overlapBmp = null; // not match
+        }
     }
 
     private void checkAndSetTranslate(float deltaX, float deltaY)
