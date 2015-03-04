@@ -288,7 +288,11 @@ public class TouchImageView extends ImageView {
                 }
 
                 setImageMatrix(matrix);
-                clipBmpRegion();
+                // suspend region decoding for performance
+                if (mode == ZOOM || mode == DRAG)
+                    overlapBmp = null;
+                else
+                    clipBmpRegion();
                 invalidate();
                 return false;
             }
@@ -651,9 +655,7 @@ public class TouchImageView extends ImageView {
                 }
             }
 
-            clipBmpRegion();
             return true;
-
         }
     }
 
