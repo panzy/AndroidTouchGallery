@@ -459,11 +459,25 @@ public class TouchImageView extends ImageView {
         if (regionDecoder != null) {
             origBmWidth = regionDecoder.getWidth();
             origBmHeight = regionDecoder.getHeight();
-            maxScale = Math.max(origBmWidth / bmWidth,
-                    Math.max(bmWidth / width, bmHeight / height));
         } else {
             origBmWidth = origBmHeight = 0;
-            maxScale = Math.max(bmWidth / width, bmHeight / height);
+        }
+
+        calcMaxScale();
+    }
+
+    // calc max scale, if view size hasn't been initialized yet,
+    // set max scale to min scale.
+    private void calcMaxScale() {
+        if (width > 1) {
+            if (regionDecoder != null) {
+                maxScale = Math.max(origBmWidth / bmWidth,
+                        Math.max(bmWidth / width, bmHeight / height));
+            } else {
+                maxScale = Math.max(bmWidth / width, bmHeight / height);
+            }
+        } else {
+            maxScale = minScale;
         }
     }
 
@@ -473,6 +487,11 @@ public class TouchImageView extends ImageView {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         width = MeasureSpec.getSize(widthMeasureSpec);
         height = MeasureSpec.getSize(heightMeasureSpec);
+
+        if (maxScale <= minScale + Float.MIN_NORMAL) {
+            calcMaxScale();
+        }
+
         //Fit to screen.
         float scale;
         float scaleX =  width / bmWidth;
@@ -599,7 +618,6 @@ public class TouchImageView extends ImageView {
                         opt.inSampleSize));
 
 
-                // XXX java.lang.IllegalArgumentException: rectangle is outside the image
                 overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
 
                 // dump for testing
