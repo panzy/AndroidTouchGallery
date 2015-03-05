@@ -594,7 +594,7 @@ public class TouchImageView extends ImageView {
 
         Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
-        if (!rectEquals(currVisibleRegion, visibleRect)) {
+        if (!rectEquals(currVisibleRegion, visibleRect) || overlapBmp == null) {
             if (m[Matrix.MSCALE_X] > 1.1f) {
 
                 currVisibleRegion = visibleRect;
