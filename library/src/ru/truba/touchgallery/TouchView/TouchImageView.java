@@ -136,7 +136,7 @@ public class TouchImageView extends ImageView {
     
 	protected void init()
     {
-        bmpPaint.setAlpha(100); // half transparent for testing
+//        bmpPaint.setAlpha(100); // half transparent for testing
 		mTimerHandler = new TimeHandler(this);
         matrix.setTranslate(1f, 1f);
         m = new float[9];
@@ -289,10 +289,10 @@ public class TouchImageView extends ImageView {
 
                 setImageMatrix(matrix);
                 // suspend region decoding for performance
+                Log.d(TAG, "mode = " + mode + ", v = " + velocity);
                 if (mode == ZOOM || (mode == DRAG && !isInertiaStopped())) {
                     overlapBmp = null;
                 } else if (mode == NONE && isInertiaStopped()) {
-                    Log.i(TAG, "mode = " + mode + ", v = " + velocity);
                     clipBmpRegion();
                 }
                 invalidate();
@@ -324,32 +324,55 @@ public class TouchImageView extends ImageView {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        Log.d(TAG, "onDraw");
         super.onDraw(canvas);
 
-        if (overlapBmp != null) {
-            canvas.drawBitmap(overlapBmp, null, new RectF( 0, 0, width, height), bmpPaint);
-        }
+        drawOverlapImg(canvas);
 
         if (!allowInert) return;
 
         // translate with inertia
         final float deltaX = lastDelta.x * velocity, deltaY = lastDelta.y * velocity;
+        Log.d(TAG, "delta = " + deltaX + ", " + deltaY);
         if (deltaX > width || deltaY > height)
         {
+            if (mode == NONE) {
+                clipBmpRegion();
+                drawOverlapImg(canvas);
+                velocity = 0;
+            }
             return;
         }
+
+        // decrease velocity
         velocity *= FRICTION;
-        if (Math.abs(deltaX) < 0.1 && Math.abs(deltaY) < 0.1) return;
+
+        if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return;
+
+        // perform translation
+        Log.d(TAG, "perform translation, delta = " + deltaX + ", " + deltaY);
         checkAndSetTranslate(deltaX, deltaY);
         setImageMatrix(matrix);
+
+        Log.d(TAG, "velocity = " + velocity + ", is inertia stopped = " + isInertiaStopped());
 
         // re-clip after inertia stopped
         if (isInertiaStopped()) {
             clipBmpRegion();
-            invalidate();
-            velocity = 0; // avoid redundant tiny translation
+            drawOverlapImg(canvas);
+            velocity = 0;
         } else {
             overlapBmp = null; // not match
+
+            // continue decrease velocity
+            if (mode == NONE)
+                invalidate();
+        }
+    }
+
+    private void drawOverlapImg(Canvas canvas) {
+        if (overlapBmp != null) {
+            canvas.drawBitmap(overlapBmp, null, new RectF( 0, 0, width, height), bmpPaint);
         }
     }
 
@@ -576,6 +599,7 @@ public class TouchImageView extends ImageView {
                         opt.inSampleSize));
 
 
+                // XXX java.lang.IllegalArgumentException: rectangle is outside the image
                 overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
 
                 // dump for testing
