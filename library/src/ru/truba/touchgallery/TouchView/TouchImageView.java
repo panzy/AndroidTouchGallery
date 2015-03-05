@@ -40,7 +40,7 @@ import java.util.TimerTask;
 @SuppressLint("NewApi")
 public class TouchImageView extends ImageView {
 
-    private int positionForTouchImageView = -1;
+    private static final String TAG = "TouchImageView";
 
     // private static final String TAG = "Touch";
     // These matrices will be used to move and zoom image
@@ -136,7 +136,7 @@ public class TouchImageView extends ImageView {
     
 	protected void init()
     {
-//        bmpPaint.setAlpha(100); // half transparent for testing
+        bmpPaint.setAlpha(100); // half transparent for testing
 		mTimerHandler = new TimeHandler(this);
         matrix.setTranslate(1f, 1f);
         m = new float[9];
@@ -289,15 +289,18 @@ public class TouchImageView extends ImageView {
 
                 setImageMatrix(matrix);
                 // suspend region decoding for performance
-                if (mode == ZOOM || mode == DRAG)
+                if (mode == ZOOM || (mode == DRAG && !isInertiaStopped())) {
                     overlapBmp = null;
-                else
+                } else if (mode == NONE && isInertiaStopped()) {
+                    Log.i(TAG, "mode = " + mode + ", v = " + velocity);
                     clipBmpRegion();
+                }
                 invalidate();
                 return false;
             }
         });
     }
+
     public void resetScale()
     {
         fillMatrixXY();
@@ -324,13 +327,12 @@ public class TouchImageView extends ImageView {
         super.onDraw(canvas);
 
         if (overlapBmp != null) {
-//            canvas.drawBitmap(overlapBmp, 0, 0, bmpPaint);
             canvas.drawBitmap(overlapBmp, null, new RectF( 0, 0, width, height), bmpPaint);
         }
 
         if (!allowInert) return;
 
-        // translate as inertance
+        // translate with inertia
         final float deltaX = lastDelta.x * velocity, deltaY = lastDelta.y * velocity;
         if (deltaX > width || deltaY > height)
         {
@@ -341,14 +343,19 @@ public class TouchImageView extends ImageView {
         checkAndSetTranslate(deltaX, deltaY);
         setImageMatrix(matrix);
 
-        // re-clip after inertance stopped
-        final float nextDeltaX = lastDelta.x * velocity, nextDeltaY = lastDelta.y * velocity;
-        if (Math.abs(nextDeltaX) < 0.1 && Math.abs(nextDeltaY) < 0.1) {
+        // re-clip after inertia stopped
+        if (isInertiaStopped()) {
             clipBmpRegion();
             invalidate();
+            velocity = 0; // avoid redundant tiny translation
         } else {
             overlapBmp = null; // not match
         }
+    }
+
+    private boolean isInertiaStopped() {
+        final float nextDeltaX = lastDelta.x * velocity, nextDeltaY = lastDelta.y * velocity;
+        return Math.abs(nextDeltaX) < 1 && Math.abs(nextDeltaY) < 1;
     }
 
     private void checkAndSetTranslate(float deltaX, float deltaY)
@@ -499,6 +506,7 @@ public class TouchImageView extends ImageView {
     }
 
     private void clipBmpRegion() {
+        new Exception().printStackTrace();
         if (regionDecoder == null)
             return;
 
@@ -509,8 +517,8 @@ public class TouchImageView extends ImageView {
 
         matrix.getValues(m);
 
-        Log.d("scale", "---------------");
-        Log.d("scale", "savedScale = " + saveScale
+        Log.d(TAG, "---------------");
+        Log.d(TAG, "savedScale = " + saveScale
                 + ", matrix scale = " + m[Matrix.MSCALE_X]
                 + ", subsample rate = " + subsampleRate);
 
@@ -521,7 +529,7 @@ public class TouchImageView extends ImageView {
         rect.top = -m[Matrix.MTRANS_Y];
         rect.right = rect.left + width;
         rect.bottom = rect.top + height;
-        Log.d("scale", String.format("rect 1 = %d,%d %d*%d of canvas",
+        Log.d(TAG, String.format("rect 1 = %d,%d %d*%d of canvas",
                 (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height()));
 
         // rect2
@@ -529,7 +537,7 @@ public class TouchImageView extends ImageView {
         rect.top /= m[Matrix.MSCALE_Y];
         rect.right /= m[Matrix.MSCALE_X];
         rect.bottom /= m[Matrix.MSCALE_Y];
-        Log.d("scale", String.format("rect 2 = %d,%d %d*%d of background image (%d*%d) ",
+        Log.d(TAG, String.format("rect 2 = %d,%d %d*%d of background image (%d*%d) ",
                 (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
                 (int)bmWidth, (int)bmHeight));
 
@@ -538,7 +546,7 @@ public class TouchImageView extends ImageView {
         rect.right *= subsampleRate;
         rect.top *= subsampleRate;
         rect.bottom *= subsampleRate;
-        Log.d("scale", String.format("rect 3 = %d,%d %d*%d of original image (%d*%d)",
+        Log.d(TAG, String.format("rect 3 = %d,%d %d*%d of original image (%d*%d)",
                 (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
                 origBmWidth, origBmHeight));
 
@@ -560,7 +568,7 @@ public class TouchImageView extends ImageView {
                     opt.inSampleSize *= 2;
                 }
 
-                Log.d("scale", String.format("clip region %d,%d %d*%d with inSampleSize=%d",
+                Log.d(TAG, String.format("clip region %d,%d %d*%d with inSampleSize=%d",
                         visibleRect.left,
                         visibleRect.top,
                         visibleRect.width(),
