@@ -21,11 +21,13 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.PointF;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v4.view.ViewPager;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-
 import ru.truba.touchgallery.TouchView.TouchImageView;
 
 /**
@@ -40,6 +42,29 @@ public class GalleryViewPager extends ViewPager {
      * @Fabio add OnItemClickListener interface
      */
     protected OnItemClickListener mOnItemClickListener;
+
+    private static final int MSG_CLICK = 1;
+    private static final int MSG_DOUBLE_CLICK = 2;
+    private static final long DOUBLE_PRESS_INTERVAL = TouchImageView.DOUBLE_PRESS_INTERVAL;
+    private long lastClickTimeMs;
+
+    private Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_CLICK:
+                    Log.i("GalleryViewPager", "click");
+                    if(mOnItemClickListener != null) {
+                        mOnItemClickListener.onItemClicked(mCurrentView, getCurrentItem());
+                    }
+                    break;
+                case MSG_DOUBLE_CLICK:
+                    Log.i("GalleryViewPager", "double click");
+                    break;
+            }
+            super.handleMessage(msg);
+        }
+    };
 
     public GalleryViewPager(Context context) {
         super(context);
@@ -70,10 +95,7 @@ public class GalleryViewPager extends ViewPager {
             float endX = event.getX();
             float endY = event.getY();
             if(isAClick(startX, endX, startY, endY)) {
-                if(mOnItemClickListener != null) {
-                    mOnItemClickListener.onItemClicked(mCurrentView, getCurrentItem());
-                }
-                //launchFullPhotoActivity(imageUrls);// WE HAVE A CLICK!!
+                onClick();
             } else {
                 super.onTouchEvent(event);
             }
@@ -112,6 +134,19 @@ public class GalleryViewPager extends ViewPager {
         return false;
     }
 
+    private void onClick() {
+        long now = System.currentTimeMillis();
+        if (now - lastClickTimeMs <= DOUBLE_PRESS_INTERVAL) {
+            // this is a double click, should cancel last click
+            handler.removeMessages(MSG_CLICK);
+            handler.sendEmptyMessage(MSG_DOUBLE_CLICK);
+        } else {
+            // this may be a click
+            handler.sendEmptyMessageDelayed(MSG_CLICK, DOUBLE_PRESS_INTERVAL);
+        }
+        lastClickTimeMs = now;
+    }
+
     private float startX;
     private float startY;
 
@@ -123,9 +158,7 @@ public class GalleryViewPager extends ViewPager {
             float endX = event.getX();
             float endY = event.getY();
             if(isAClick(startX, endX, startY, endY)) {
-                if(mOnItemClickListener != null) {
-                    mOnItemClickListener.onItemClicked(mCurrentView, getCurrentItem());
-                }
+                onClick();
             } else {
                 super.onInterceptTouchEvent(event);
             }
