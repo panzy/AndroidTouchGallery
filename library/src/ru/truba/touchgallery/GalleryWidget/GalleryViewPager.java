@@ -66,7 +66,6 @@ public class GalleryViewPager extends ViewPager {
     public boolean onTouchEvent(MotionEvent event) {
 
         if ((event.getAction() & MotionEvent.ACTION_MASK) == MotionEvent.ACTION_UP) {
-            //super.onInterceptTouchEvent(event);
 
             float endX = event.getX();
             float endY = event.getY();
