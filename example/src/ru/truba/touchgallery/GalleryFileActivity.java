@@ -18,28 +18,22 @@
 package ru.truba.touchgallery;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.Toast;
-import ru.truba.touchgallery.GalleryWidget.BasePagerAdapter.OnItemChangeListener;
-import ru.truba.touchgallery.GalleryWidget.GalleryViewPager;
-import ru.truba.touchgallery.GalleryWidget.UrlPagerAdapter;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.List;
 
 public class GalleryFileActivity extends Activity {
 
-    private GalleryViewPager mViewPager;
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         
-        String[] urls = null;
-        List<String> items = new ArrayList<String>();
+        ArrayList<String> items = new ArrayList<String>();
 		try {
-			urls = getAssets().list("");
+            String[] urls = getAssets().list("");
 	
 	        for (String filename : urls) 
 	        {
@@ -54,21 +48,11 @@ public class GalleryFileActivity extends Activity {
 			e.printStackTrace();
 		}
 
-        UrlPagerAdapter pagerAdapter = new UrlPagerAdapter(this, items);
-        pagerAdapter.setBmpSizeLimit(1280, 720, 320, 240);
-        pagerAdapter.setOnItemChangeListener(new OnItemChangeListener()
-		{
-			@Override
-			public void onItemChange(int currentPosition)
-			{
-				Toast.makeText(GalleryFileActivity.this, "Current item is " + currentPosition, Toast.LENGTH_SHORT).show();
-			}
-		});
-        
-        mViewPager = (GalleryViewPager)findViewById(R.id.viewer);
-        mViewPager.setOffscreenPageLimit(3);
-        mViewPager.setAdapter(pagerAdapter);
+        startActivity(new Intent(this, TouchGalleryActivity.class)
+                .putStringArrayListExtra(TouchGalleryActivity.EXTRA_URLS, items)
+                .putExtra(TouchGalleryActivity.EXTRA_POSITION, 0));
     }
+
     public void copy(InputStream in, File dst) throws IOException {
 
         OutputStream out = new FileOutputStream(dst);

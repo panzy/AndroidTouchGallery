@@ -1,3 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+	<string name="share">分享</string>
+	<string name="view_image_with_other_app">在其它应用中查看图片</string>
+	<string name="view_image_info">属性</string>
+	<string name="image_properties">图片属性</string>
 </resources>
