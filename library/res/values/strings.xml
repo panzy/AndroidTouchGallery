@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="share">分享</string>
-	<string name="view_image_with_other_app">在其它应用中查看图片</string>
-	<string name="view_image_info">属性</string>
 	<string name="image_properties">图片属性</string>
+	<string name="image_saved_to">已保存到%s</string>
+	<string name="image_failed_to_save">保存失败：%s</string>
+	<string name="image_operation_failed_due_to_invalid_src">图片操作失败：源文件无效</string>
 </resources>

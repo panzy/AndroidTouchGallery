@@ -17,6 +17,7 @@
  */
 package ru.truba.touchgallery.TouchView;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -24,7 +25,6 @@ import android.graphics.BitmapRegionDecoder;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Base64;
 import android.util.Log;
 import android.widget.ImageView.ScaleType;
 import android.widget.ProgressBar;
@@ -114,6 +114,7 @@ public class UrlTouchImageView extends RelativeLayout {
             return this;
         }
 
+        @TargetApi(Build.VERSION_CODES.GINGERBREAD_MR1)
         @Override
         protected Bitmap doInBackground(URL... urls) {
             URL aURL = urls[0];
@@ -150,7 +151,11 @@ public class UrlTouchImageView extends RelativeLayout {
                             }
                         });
 
-                        copy(bis, new File(cachePath));
+                        String downloadPath = getDownloaPath(aURL);
+                        // download to downloadPath
+                        copy(bis, new File(downloadPath));
+                        // copy to cachePath
+                        new File(downloadPath).renameTo(new File(cachePath));
                         bm = decodeBmp(cachePath);
                         cachedFiles.add(cachePath);
 
@@ -158,8 +163,8 @@ public class UrlTouchImageView extends RelativeLayout {
                         is.close();
                     }
 
-                    if (Build.VERSION.SDK_INT >= 10)
-                        regionDecoder = BitmapRegionDecoder.newInstance(aURL.getFile(), true);
+                    if (Build.VERSION.SDK_INT >= 10 && bm != null)
+                        regionDecoder = BitmapRegionDecoder.newInstance(cachePath, true);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -271,9 +276,20 @@ public class UrlTouchImageView extends RelativeLayout {
         }
     }
 
+    private String getDownloaPath(URL url) {
+        return getCachePath(getContext(), url) + ".download";
+    }
+
     private String getCachePath(URL url) {
-        return getContext().getFilesDir().getAbsoluteFile() + "/"
-                + Base64.encodeToString(url.toString().getBytes(), 0);
+        return getCachePath(getContext(), url);
+    }
+
+    public static String getCachePath(Context context, URL url) {
+        // prefer public dir, so can share with other apps
+        File dir = context.getExternalCacheDir();
+        if (dir == null)
+            dir = context.getFilesDir().getAbsoluteFile();
+        return dir + "/" + url.getFile().replace('/', '-');
     }
 
     private void deleteCacheFiles() {
