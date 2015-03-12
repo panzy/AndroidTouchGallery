@@ -20,11 +20,6 @@
             android:configChanges="orientation" >
         </activity>
         <activity
-            android:name="ru.truba.touchgallery.GalleryFileActivity"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
-            android:configChanges="orientation" >
-        </activity>
-        <activity
             android:name="ru.truba.touchgallery.MainActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
