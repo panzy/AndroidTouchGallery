@@ -46,7 +46,7 @@ public class TouchImageView extends ImageView {
     Matrix matrix = new Matrix();
     Matrix savedMatrix = new Matrix();
 
-    public static final long DOUBLE_PRESS_INTERVAL = 300;
+    static final long DOUBLE_PRESS_INTERVAL = 300;
     static final float FRICTION = 0.9f;
 
     // We can be in one of these 4 states
