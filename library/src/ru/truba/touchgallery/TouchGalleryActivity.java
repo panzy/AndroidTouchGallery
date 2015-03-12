@@ -107,6 +107,14 @@ public class TouchGalleryActivity extends ActionBarActivity
 
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        toolbar.setNavigationIcon(R.drawable.ic_menu_back);
+        toolbar.setNavigationContentDescription("back");
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                onBackPressed();
+            }
+        });
 
         mViewPager = (GalleryViewPager)findViewById(R.id.viewer);
         mViewPager.setOffscreenPageLimit(3);
