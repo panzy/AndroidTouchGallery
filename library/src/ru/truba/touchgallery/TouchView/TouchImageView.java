@@ -312,9 +312,10 @@ public class TouchImageView extends ImageView {
         scaleMatrixToBounds();
 
         setImageMatrix(matrix);
-        clipBmpRegion();
+        overlapBmp = null;
         invalidate();
     }
+
     public boolean pagerCanScroll()
     {
         if (mode != NONE) return false;

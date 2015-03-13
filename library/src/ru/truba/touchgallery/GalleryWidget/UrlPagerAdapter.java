@@ -18,10 +18,13 @@
 package ru.truba.touchgallery.GalleryWidget;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 import android.view.ViewGroup;
 import ru.truba.touchgallery.TouchView.UrlTouchImageView;
 
+import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -33,6 +36,12 @@ import java.util.List;
  */
 public class UrlPagerAdapter extends BasePagerAdapter {
 
+    /**
+     * {@link Message#obj} = UrlTouchImageView;
+     * {@link Message#arg1} = position
+     */
+    private static final int MSG_LOAD_LARGE_IMG = 1;
+
     // image size limit
     int maxWidth = 1280;
     int maxHeight = 720;
@@ -42,6 +51,32 @@ public class UrlPagerAdapter extends BasePagerAdapter {
     UrlTouchImageView currUrlTouchImageView;
 
     protected final List<URL> mUrls;
+
+    private Handler handler = new MyHandler(this);
+
+    private static class MyHandler extends Handler {
+        WeakReference<UrlPagerAdapter> adapterWeakReference;
+
+        public MyHandler(UrlPagerAdapter urlPagerAdapter) {
+            adapterWeakReference = new WeakReference<>(urlPagerAdapter);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_LOAD_LARGE_IMG:
+                    UrlPagerAdapter adapter = adapterWeakReference.get();
+                    if (adapter != null) {
+                        ((UrlTouchImageView) msg.obj).setUrl(
+                                adapter.mUrls.get(msg.arg1),
+                                adapter.maxWidth,
+                                adapter.maxHeight);
+                    }
+                    return;
+            }
+            super.handleMessage(msg);
+        }
+    };
 
     /**
      * @param context
@@ -101,8 +136,14 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             currUrlTouchImageView.setUrl(mUrls.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
         }
 
-        if (mCurrentPosition != position)
-            ((UrlTouchImageView)object).setUrl(mUrls.get(position), maxWidth, maxHeight);
+        if (mCurrentPosition != position) {
+            Message msg = new Message();
+            msg.what = MSG_LOAD_LARGE_IMG;
+            msg.obj = object;
+            msg.arg1 = position;
+            handler.removeMessages(MSG_LOAD_LARGE_IMG);
+            handler.sendMessageDelayed(msg, 500);
+        }
 
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
@@ -119,10 +160,16 @@ public class UrlPagerAdapter extends BasePagerAdapter {
     @Override
     public Object instantiateItem(ViewGroup collection, final int position){
         final UrlTouchImageView iv = new UrlTouchImageView(mContext);
-        if (position == mCurrentPosition)
-            iv.setUrl(mUrls.get(position), maxWidth, maxHeight);
-        else
+        if (position == mCurrentPosition) {
+            Message msg = new Message();
+            msg.what = MSG_LOAD_LARGE_IMG;
+            msg.obj = iv;
+            msg.arg1 = position;
+            handler.removeMessages(MSG_LOAD_LARGE_IMG);
+            handler.sendMessageDelayed(msg, 500);
+        } else {
             iv.setUrl(mUrls.get(position), maxPreloadWidth, maxPreloadHeight);
+        }
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         collection.addView(iv, 0);
