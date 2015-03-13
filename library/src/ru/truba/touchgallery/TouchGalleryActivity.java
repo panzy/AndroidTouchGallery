@@ -311,7 +311,8 @@ public class TouchGalleryActivity extends ActionBarActivity
             propertiesDlg.show();
             isShowingPropertiesDlg = true;
         } else {
-            Toast.makeText(this, getString(R.string.image_operation_failed_due_to_invalid_src), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.image_operation_failed_due_to_invalid_src,
+                    file == null ? "null" : file.getAbsoluteFile()), Toast.LENGTH_LONG).show();
         }
     }
 
