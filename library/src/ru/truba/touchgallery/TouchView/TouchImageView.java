@@ -26,6 +26,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.AttributeSet;
 import android.util.FloatMath;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
@@ -39,7 +40,7 @@ import java.util.TimerTask;
 @SuppressLint("NewApi")
 public class TouchImageView extends ImageView {
 
-    //private static final String TAG = "TouchImageView";
+    private static final String TAG = "TouchImageView";
 
     // private static final String TAG = "Touch";
     // These matrices will be used to move and zoom image
@@ -76,6 +77,7 @@ public class TouchImageView extends ImageView {
     int origBmWidth, origBmHeight;
 
     Bitmap overlapBmp;
+    Rect overlapBmpDstRect = new Rect();
     BitmapRegionDecoder regionDecoder;
     Rect currVisibleRegion = new Rect();
     Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -371,7 +373,7 @@ public class TouchImageView extends ImageView {
 
     private void drawOverlapImg(Canvas canvas) {
         if (overlapBmp != null) {
-            canvas.drawBitmap(overlapBmp, null, new RectF( 0, 0, width, height), bmpPaint);
+            canvas.drawBitmap(overlapBmp, null, overlapBmpDstRect, bmpPaint);
         }
     }
 
@@ -616,7 +618,33 @@ public class TouchImageView extends ImageView {
                 //        opt.inSampleSize));
 
 
+                if (visibleRect.top < 0) {
+                    float heightScale = ((float)visibleRect.height() + 2 * visibleRect.top) / visibleRect.height();
+                    overlapBmpDstRect.top = (int) (-visibleRect.top / subsampleRate * m[Matrix.MSCALE_Y]);
+                    overlapBmpDstRect.bottom = overlapBmpDstRect.top + (int) (height * heightScale);
+
+                    visibleRect.bottom += visibleRect.top;
+                    visibleRect.top = 0;
+                } else {
+                    overlapBmpDstRect.top = 0;
+                    overlapBmpDstRect.bottom = (int) height;
+                }
+
+                if (visibleRect.left < 0) {
+                    float widthScale = ((float)visibleRect.width() + 2 * visibleRect.left) / visibleRect.width();
+                    overlapBmpDstRect.left = (int) (- visibleRect.left / subsampleRate * m[Matrix.MSCALE_X]);
+                    overlapBmpDstRect.right = overlapBmpDstRect.left + (int) (width * widthScale);
+
+                    visibleRect.right += visibleRect.left;
+                    visibleRect.left = 0;
+                } else {
+                    overlapBmpDstRect.left = 0;
+                    overlapBmpDstRect.right = (int) width;
+                }
+
                 overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
+                Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
+                        overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
 
                 // dump for testing
                 if (false) dumpOverlapBmp();
