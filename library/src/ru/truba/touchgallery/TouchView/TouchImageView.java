@@ -20,10 +20,7 @@ package ru.truba.touchgallery.TouchView;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.*;
-import android.os.Build;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.Message;
+import android.os.*;
 import android.util.AttributeSet;
 import android.util.FloatMath;
 import android.util.Log;
@@ -105,7 +102,9 @@ public class TouchImageView extends ImageView {
     private OnClickListener mOnClickListener;
     private Object mScaleDetector;
     private Handler mTimerHandler = null;
-    
+    private WorkThread workThread = null;
+    private UIHandler uiHandler = null;
+
     // Scale mode on DoubleTap
     private boolean zoomToOriginalSize = false;
 
@@ -118,6 +117,73 @@ public class TouchImageView extends ImageView {
     }    
 
     public boolean onLeftSide = false, onTopSide = false, onRightSide = false, onBottomSide = false;
+
+    private static class UIHandler extends Handler {
+        public static final int MSG_INVALIDATE = 1;
+
+        private WeakReference<TouchImageView> ref;
+
+        public UIHandler(TouchImageView touchImageView) {
+            ref = new WeakReference<>(touchImageView);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            if (msg.what == MSG_INVALIDATE) {
+                TouchImageView touchImageView = ref.get();
+                if (ref != null)
+                    touchImageView.invalidate();
+            }
+        }
+    }
+
+    private static class WorkThread extends Thread {
+        public static final int MSG_DECODE_REGION = 1;
+
+        private WeakReference<TouchImageView> ref;
+        private Handler handler;
+        private int lastArg1 = 0;
+
+        public WorkThread(TouchImageView touchImageView) {
+            ref = new WeakReference<>(touchImageView);
+        }
+
+        @Override
+        public void run() {
+
+            Looper.prepare();
+
+            handler = new Handler() {
+                public void handleMessage(Message msg) {
+                    if (msg.what == MSG_DECODE_REGION) {
+                        TouchImageView touchImageView = ref.get();
+                        if (touchImageView != null) {
+                            // if lastArg1 != msg.arg1, then this task is stale
+                            ((Runnable) msg.obj).run();
+
+                            if (lastArg1 == msg.arg1)
+                                touchImageView.uiHandler.sendEmptyMessage(UIHandler.MSG_INVALIDATE);
+                            else {
+                                Log.d(TAG, "discard stale overlapBmp, random code = " + msg.arg1);
+                                touchImageView.overlapBmp = null;
+                            }
+                        }
+                    }
+                }
+            };
+
+            Looper.loop();
+        }
+
+        public void removeMessage(int what) {
+            handler.removeMessages(what);
+        }
+
+        public void sendMessage(Message msg) {
+            handler.sendMessage(msg);
+            lastArg1 = msg.arg1;
+        }
+    }
 
     public TouchImageView(Context context) {
         super(context);
@@ -139,6 +205,9 @@ public class TouchImageView extends ImageView {
     {
 //        bmpPaint.setAlpha(100); // half transparent for testing
 		mTimerHandler = new TimeHandler(this);
+        uiHandler = new UIHandler(this);
+        workThread = new WorkThread(this);
+        workThread.start();
         matrix.setTranslate(1f, 1f);
         m = new float[9];
         setImageMatrix(matrix);
@@ -592,14 +661,14 @@ public class TouchImageView extends ImageView {
         //        (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
         //        origBmWidth, origBmHeight));
 
-        Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
+        final Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect) || overlapBmp == null) {
             if (m[Matrix.MSCALE_X] > 1.1f) {
 
                 currVisibleRegion = visibleRect;
 
-                BitmapFactory.Options opt = new BitmapFactory.Options();
+                final BitmapFactory.Options opt = new BitmapFactory.Options();
 
                 opt.inSampleSize = 1;
                 int halfWidth = visibleRect.width() / 2;
@@ -642,12 +711,25 @@ public class TouchImageView extends ImageView {
                     overlapBmpDstRect.right = (int) width;
                 }
 
-                overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
-                Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
-                        overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
+                overlapBmp = null;
 
-                // dump for testing
-                if (false) dumpOverlapBmp();
+                // decode region async
+                Message msg = new Message();
+                msg.what = WorkThread.MSG_DECODE_REGION;
+                msg.arg1 = (int) (Math.random() * 100000); // random code
+                msg.obj = new Runnable() {
+                    @Override
+                    public void run() {
+                        overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
+                        Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
+                                overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
+
+                        // dump for testing
+                        if (false) dumpOverlapBmp();
+                    }
+                };
+                workThread.removeMessage(msg.what);
+                workThread.sendMessage(msg);
             } else {
                 overlapBmp = null;
             }
