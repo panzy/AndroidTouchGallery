@@ -86,9 +86,13 @@ public class TouchImageView extends ImageView {
     float[] m;
     float matrixX, matrixY;
 
-    float saveScale = 1f;
+    /** minimum of saveScale */
     final float minScale = 1f;
+    /** maximum of saveScale */
     float maxScale = 2.0f;
+    /** define as 1 when img fits screen */
+    float saveScale = 1f;
+
     float oldDist = 1f;
 
     PointF lastDelta = new PointF(0, 0);
@@ -267,8 +271,7 @@ public class TouchImageView extends ImageView {
                                 }
                                 else
                                 {
-                                    matrix.postScale(minScale / saveScale, minScale / saveScale, width / 2, height / 2);
-                                    saveScale = minScale;
+                                    resetScale();
                                 }
                                 calcPadding();
                                 checkAndSetTranslate(0, 0);
@@ -533,12 +536,12 @@ public class TouchImageView extends ImageView {
             origBmWidth = origBmHeight = 0;
         }
 
-        calcMaxScale();
+        resetMatrix();
     }
 
     // calc max scale, if view size hasn't been initialized yet,
     // set max scale to min scale.
-    private void calcMaxScale() {
+    private void resetMaxScale() {
         if (width > 1) {
             if (regionDecoder != null) {
                 maxScale = Math.max(origBmWidth / bmWidth,
@@ -549,6 +552,11 @@ public class TouchImageView extends ImageView {
         } else {
             maxScale = minScale;
         }
+
+        matrix.getValues(m);
+        maxScale /= m[Matrix.MSCALE_X];
+        Log.d(TAG, String.format("scale: init matrix = %f, saved = %f, max = %f, min = %f",
+                m[Matrix.MSCALE_X], saveScale, maxScale, minScale));
     }
 
     @Override
@@ -558,10 +566,11 @@ public class TouchImageView extends ImageView {
         width = MeasureSpec.getSize(widthMeasureSpec);
         height = MeasureSpec.getSize(heightMeasureSpec);
 
-        if (maxScale <= minScale + Float.MIN_NORMAL) {
-            calcMaxScale();
-        }
+        resetMatrix();
+    }
 
+    /** Reset matrix to fit to screen. */
+    private void resetMatrix() {
         //Fit to screen.
         float scale;
         float scaleX =  width / bmWidth;
@@ -584,6 +593,8 @@ public class TouchImageView extends ImageView {
         origHeight = height - 2 * redundantYSpace;
         calcPadding();
         setImageMatrix(matrix);
+
+        resetMaxScale();
     }
 
     private double distanceBetween(PointF left, PointF right)
