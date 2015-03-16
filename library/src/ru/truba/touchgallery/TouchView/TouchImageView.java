@@ -661,6 +661,7 @@ public class TouchImageView extends ImageView {
         //        (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
         //        origBmWidth, origBmHeight));
 
+
         final Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
 
         if (!rectEquals(currVisibleRegion, visibleRect) || overlapBmp == null) {
@@ -713,23 +714,26 @@ public class TouchImageView extends ImageView {
 
                 overlapBmp = null;
 
-                // decode region async
-                Message msg = new Message();
-                msg.what = WorkThread.MSG_DECODE_REGION;
-                msg.arg1 = (int) (Math.random() * 100000); // random code
-                msg.obj = new Runnable() {
-                    @Override
-                    public void run() {
-                        overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
-                        Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
-                                overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
+                // check IllegalArgumentException("rectangle is outside the image");
+                if (!(visibleRect.right <= 0 || visibleRect.bottom <= 0 || visibleRect.left >= origBmWidth || visibleRect.top >= origBmHeight)) {
+                    // decode region async
+                    Message msg = new Message();
+                    msg.what = WorkThread.MSG_DECODE_REGION;
+                    msg.arg1 = (int) (Math.random() * 100000); // random code
+                    msg.obj = new Runnable() {
+                        @Override
+                        public void run() {
+                            overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
+                            Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
+                                    overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
 
-                        // dump for testing
-                        if (false) dumpOverlapBmp();
-                    }
-                };
-                workThread.removeMessage(msg.what);
-                workThread.sendMessage(msg);
+                            // dump for testing
+                            if (false) dumpOverlapBmp();
+                        }
+                    };
+                    workThread.removeMessage(msg.what);
+                    workThread.sendMessage(msg);
+                }
             } else {
                 overlapBmp = null;
             }
