@@ -192,6 +192,9 @@ public class TouchGalleryActivity extends ActionBarActivity
             File dst = new File(getOutputPath(outDir, shortFileName));
 
             try {
+                if (!new File(outDir).exists())
+                    new File(outDir).mkdirs();
+
                 copy(new FileInputStream(srcFile), dst);
 
                 // add to media provider
