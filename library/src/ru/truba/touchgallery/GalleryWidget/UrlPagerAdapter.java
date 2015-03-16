@@ -142,7 +142,7 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             msg.obj = object;
             msg.arg1 = position;
             handler.removeMessages(MSG_LOAD_LARGE_IMG);
-            handler.sendMessageDelayed(msg, 500);
+            handler.sendMessageDelayed(msg, 300);
         }
 
         super.setPrimaryItem(container, position, object);
