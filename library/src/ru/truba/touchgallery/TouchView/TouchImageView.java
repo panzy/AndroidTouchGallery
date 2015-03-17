@@ -565,6 +565,11 @@ public class TouchImageView extends ImageView {
 
         matrix.getValues(m);
         maxScale /= m[Matrix.MSCALE_X];
+
+        // little img, large screen...
+        if (maxScale < minScale)
+            maxScale = minScale;
+
         Log.d(TAG, String.format("scale: init matrix = %f, saved = %f, max = %f, min = %f",
                 m[Matrix.MSCALE_X], saveScale, maxScale, minScale));
     }
