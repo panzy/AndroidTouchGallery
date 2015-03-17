@@ -229,9 +229,8 @@ public class TouchImageView extends ImageView {
                     return false;
 
                 WrapMotionEvent event = WrapMotionEvent.wrap(rawEvent);
-                if (mScaleDetector != null)
-                {
-                     ((ScaleGestureDetector)mScaleDetector).onTouchEvent(rawEvent);
+                if (mScaleDetector != null) {
+                    ((ScaleGestureDetector) mScaleDetector).onTouchEvent(rawEvent);
                 }
                 fillMatrixXY();
                 PointF curr = new PointF(event.getX(), event.getY());
@@ -263,26 +262,29 @@ public class TouchImageView extends ImageView {
 
                         if (xDiff < CLICK && yDiff < CLICK) {
 
-
                             //Perform scale on double click
                             long pressTime = System.currentTimeMillis();
                             if (pressTime - lastPressTime <= DOUBLE_PRESS_INTERVAL) {
                                 if (mClickTimer != null) mClickTimer.cancel();
-                                if (saveScale == 1)
-                                {
+                                if (saveScale == 1) {
                                     final float targetScale = maxScale / saveScale;
-                                    matrix.postScale(targetScale, targetScale, start.x, start.y);
                                     saveScale = maxScale;
-                                }
-                                else
-                                {
+
+                                    // if drag is not needed on max scale, center the img,
+                                    // otherwise, center the touch point.
+                                    float scaleWidth = Math.round(origWidth * saveScale);
+                                    float scaleHeight = Math.round(origHeight * saveScale);
+                                    float centerX = (scaleWidth < width) ? width / 2 : start.x;
+                                    float centerY = (scaleHeight < height) ? height / 2 : start.y;
+
+                                    matrix.postScale(targetScale, targetScale, centerX, centerY);
+                                } else {
                                     resetScale();
                                 }
                                 calcPadding();
                                 checkAndSetTranslate(0, 0);
                                 lastPressTime = 0;
-                            }
-                            else {
+                            } else {
                                 lastPressTime = pressTime;
                                 mClickTimer = new Timer();
                                 mClickTimer.schedule(new Task(), 300);
@@ -310,14 +312,13 @@ public class TouchImageView extends ImageView {
 
                             long dragTime = System.currentTimeMillis();
 
-                            velocity = (float)distanceBetween(curr, last) / (dragTime - lastDragTime) * FRICTION;
+                            velocity = (float) distanceBetween(curr, last) / (dragTime - lastDragTime) * FRICTION;
                             lastDragTime = dragTime;
 
                             checkAndSetTranslate(deltaX, deltaY);
                             lastDelta.set(deltaX, deltaY);
                             last.set(curr.x, curr.y);
-                        }
-                        else if (mScaleDetector == null && mode == ZOOM) {
+                        } else if (mScaleDetector == null && mode == ZOOM) {
                             float newDist = spacing(event);
                             if (rawEvent.getPointerCount() < 2) break;
                             //There is one serious trouble: when you scaling with two fingers, then pick up first finger of gesture, ACTION_MOVE being called.
