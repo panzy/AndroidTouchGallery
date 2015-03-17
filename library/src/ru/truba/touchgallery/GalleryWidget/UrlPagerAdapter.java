@@ -70,7 +70,7 @@ public class UrlPagerAdapter extends BasePagerAdapter {
                         ((UrlTouchImageView) msg.obj).setUrl(
                                 adapter.mUrls.get(msg.arg1),
                                 adapter.maxWidth,
-                                adapter.maxHeight);
+                                adapter.maxHeight, true);
                     }
                     return;
             }
@@ -133,7 +133,7 @@ public class UrlPagerAdapter extends BasePagerAdapter {
     @Override
     public void setPrimaryItem(ViewGroup container, int position, Object object) {
         if (currUrlTouchImageView != null && mCurrentPosition != position) {
-            currUrlTouchImageView.setUrl(mUrls.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight);
+            currUrlTouchImageView.setUrl(mUrls.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight, false);
         }
 
         if (mCurrentPosition != position) {
@@ -142,7 +142,7 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             msg.obj = object;
             msg.arg1 = position;
             handler.removeMessages(MSG_LOAD_LARGE_IMG);
-            handler.sendMessageDelayed(msg, 300);
+            handler.sendMessageDelayed(msg, 600);
         }
 
         super.setPrimaryItem(container, position, object);
@@ -166,9 +166,9 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             msg.obj = iv;
             msg.arg1 = position;
             handler.removeMessages(MSG_LOAD_LARGE_IMG);
-            handler.sendMessageDelayed(msg, 500);
+            handler.sendMessageDelayed(msg, 300);
         } else {
-            iv.setUrl(mUrls.get(position), maxPreloadWidth, maxPreloadHeight);
+            iv.setUrl(mUrls.get(position), maxPreloadWidth, maxPreloadHeight, false);
         }
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 

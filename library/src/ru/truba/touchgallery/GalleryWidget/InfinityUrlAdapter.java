@@ -38,9 +38,9 @@ public class InfinityUrlAdapter extends BasePagerAdapter {
         position = position % TOTAL_PAGES;
         final UrlTouchImageView iv = new UrlTouchImageView(mContext);
         if (position == mCurrentPosition)
-            iv.setUrl(mResources.get(position), -1, -1);
+            iv.setUrl(mResources.get(position), -1, -1, false);
         else
-            iv.setUrl(mResources.get(position), 10, 10);
+            iv.setUrl(mResources.get(position), 10, 10, false);
         iv.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         if(mScaleType != null)
             iv.setScaleType(mScaleType);

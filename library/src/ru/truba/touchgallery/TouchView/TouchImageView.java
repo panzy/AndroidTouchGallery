@@ -39,6 +39,8 @@ public class TouchImageView extends ImageView {
 
     private static final String TAG = "TouchImageView";
 
+    public boolean touchEnabled = true;
+
     // private static final String TAG = "Touch";
     // These matrices will be used to move and zoom image
     Matrix matrix = new Matrix();
@@ -223,6 +225,9 @@ public class TouchImageView extends ImageView {
         setOnTouchListener(new OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent rawEvent) {
+                if (!touchEnabled)
+                    return false;
+
                 WrapMotionEvent event = WrapMotionEvent.wrap(rawEvent);
                 if (mScaleDetector != null)
                 {
@@ -537,6 +542,10 @@ public class TouchImageView extends ImageView {
         }
 
         resetMatrix();
+
+        // clear overlap bmp
+        overlapBmp = null;
+        invalidate();
     }
 
     // calc max scale, if view size hasn't been initialized yet,

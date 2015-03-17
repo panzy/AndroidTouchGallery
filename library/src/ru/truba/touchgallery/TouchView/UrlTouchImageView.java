@@ -82,19 +82,21 @@ public class UrlTouchImageView extends RelativeLayout {
         this.addView(mProgressBar);
     }
 
-    public void setUrl(String imageUrl, int maxWidth, int maxHeight)
+    public void setUrl(String imageUrl, int maxWidth, int maxHeight, boolean enableTouchAfterDone)
     {
         try {
-            setUrl(new URL(imageUrl), maxWidth, maxHeight);
+            setUrl(new URL(imageUrl), maxWidth, maxHeight, enableTouchAfterDone);
         }
         catch (MalformedURLException e) {
             e.printStackTrace();
         }
     }
 
-    public void setUrl(URL imageUrl, int maxWidth, int maxHeight)
+    public void setUrl(URL imageUrl, int maxWidth, int maxHeight, boolean enableTouchAfterDone)
     {
-        new ImageLoadTask().setSizeLimit(maxWidth, maxHeight).execute(imageUrl);
+//        Log.d(TAG, String.format("setUrl(%s, %d, %d), touchEnabled=%s", imageUrl, maxWidth, maxHeight, enableTouchAfterDone));
+        new ImageLoadTask().setSizeLimit(maxWidth, maxHeight)
+                .setEnableTouchAfterDone(enableTouchAfterDone).execute(imageUrl);
     }
 
     public void setScaleType(ScaleType scaleType) {
@@ -107,11 +109,23 @@ public class UrlTouchImageView extends RelativeLayout {
         int maxWidth;
         int maxHeight;
         BitmapRegionDecoder regionDecoder;
+        boolean touchEnabledAfterDone;
 
         public ImageLoadTask setSizeLimit(int w, int h) {
             maxWidth = w;
             maxHeight = h;
             return this;
+        }
+
+        public ImageLoadTask setEnableTouchAfterDone(boolean value) {
+            touchEnabledAfterDone = value;
+            return this;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            mImageView.touchEnabled = false; // suspend touch
         }
 
         @TargetApi(Build.VERSION_CODES.GINGERBREAD_MR1)
@@ -195,6 +209,8 @@ public class UrlTouchImageView extends RelativeLayout {
         	}
             mImageView.setVisibility(VISIBLE);
             mProgressBar.setVisibility(GONE);
+            if (touchEnabledAfterDone)
+                mImageView.touchEnabled = touchEnabledAfterDone;
 
             mBmp = bitmap;
         }

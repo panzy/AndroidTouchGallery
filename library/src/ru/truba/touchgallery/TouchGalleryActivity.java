@@ -48,8 +48,8 @@ public class TouchGalleryActivity extends ActionBarActivity
      */
     public static final String EXTRA_IMG_PRELOAD_HEIGHT = "extra_img_preload_height";
 
-    public static final int IMG_LOAD_WIDTH = 320;
-    public static final int IMG_LOAD_HEIGHT = 180;
+    public static final int IMG_LOAD_WIDTH = 1280;
+    public static final int IMG_LOAD_HEIGHT = 720;
     public static final int IMG_PRELOAD_WIDTH = 320;
     public static final int IMG_PRELOAD_HEIGHT = 180;
 
