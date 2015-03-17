@@ -89,8 +89,11 @@ public class TouchImageView extends ImageView {
     float matrixX, matrixY;
 
     /** minimum of saveScale */
-    final float minScale = 1f;
-    /** maximum of saveScale */
+    final float MIN_SCALE = 1f;
+    /** maximum of saveScale, will be calculated later.
+     *
+     * When saveScale reach maxScale, the image will be displayed as
+     * 1:1 if it's larger than screen, or fit the screen.*/
     float maxScale = 2.0f;
     /** define as 1 when img fits screen */
     float saveScale = 1f;
@@ -289,7 +292,7 @@ public class TouchImageView extends ImageView {
                                 mClickTimer = new Timer();
                                 mClickTimer.schedule(new Task(), 300);
                             }
-                            if (saveScale == minScale) {
+                            if (saveScale == MIN_SCALE) {
                                 scaleMatrixToBounds();
                             }
                         }
@@ -332,9 +335,9 @@ public class TouchImageView extends ImageView {
                             if (saveScale > maxScale) {
                                 saveScale = maxScale;
                                 mScaleFactor = maxScale / origScale;
-                            } else if (saveScale < minScale) {
-                                saveScale = minScale;
-                                mScaleFactor = minScale / origScale;
+                            } else if (saveScale < MIN_SCALE) {
+                                saveScale = MIN_SCALE;
+                                mScaleFactor = MIN_SCALE / origScale;
                             }
 
                             calcPadding();
@@ -383,8 +386,8 @@ public class TouchImageView extends ImageView {
     public void resetScale()
     {
         fillMatrixXY();
-        matrix.postScale(minScale / saveScale, minScale / saveScale, width / 2, height / 2);
-        saveScale = minScale;
+        matrix.postScale(MIN_SCALE / saveScale, MIN_SCALE / saveScale, width / 2, height / 2);
+        saveScale = MIN_SCALE;
 
         calcPadding();
         checkAndSetTranslate(0, 0);
@@ -399,7 +402,7 @@ public class TouchImageView extends ImageView {
     public boolean pagerCanScroll()
     {
         if (mode != NONE) return false;
-        return saveScale == minScale;
+        return saveScale == MIN_SCALE;
     }
 
     @Override
@@ -560,18 +563,18 @@ public class TouchImageView extends ImageView {
                 maxScale = Math.max(bmWidth / width, bmHeight / height);
             }
         } else {
-            maxScale = minScale;
+            maxScale = MIN_SCALE;
         }
 
         matrix.getValues(m);
         maxScale /= m[Matrix.MSCALE_X];
 
         // little img, large screen...
-        if (maxScale < minScale)
-            maxScale = minScale;
+        if (maxScale < MIN_SCALE)
+            maxScale = MIN_SCALE;
 
         Log.d(TAG, String.format("scale: init matrix = %f, saved = %f, max = %f, min = %f",
-                m[Matrix.MSCALE_X], saveScale, maxScale, minScale));
+                m[Matrix.MSCALE_X], saveScale, maxScale, MIN_SCALE));
     }
 
     @Override
@@ -592,7 +595,6 @@ public class TouchImageView extends ImageView {
         float scaleY = height / bmHeight;
         scale = Math.min(scaleX, scaleY);
         matrix.setScale(scale, scale);
-        //minScale = scale;
         setImageMatrix(matrix);
         saveScale = 1f;
 
@@ -810,9 +812,9 @@ public class TouchImageView extends ImageView {
             if (saveScale > maxScale) {
                 saveScale = maxScale;
                 mScaleFactor = maxScale / origScale;
-            } else if (saveScale < minScale) {
-                saveScale = minScale;
-                mScaleFactor = minScale / origScale;
+            } else if (saveScale < MIN_SCALE) {
+                saveScale = MIN_SCALE;
+                mScaleFactor = MIN_SCALE / origScale;
             }
             right = width * saveScale - width - (2 * redundantXSpace * saveScale);
             bottom = height * saveScale - height - (2 * redundantYSpace * saveScale);
