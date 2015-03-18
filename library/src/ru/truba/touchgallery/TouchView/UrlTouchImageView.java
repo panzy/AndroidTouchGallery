@@ -24,6 +24,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView.ScaleType;
@@ -48,6 +49,7 @@ public class UrlTouchImageView extends RelativeLayout {
     public static int bmpCnt = 0;
 
     LinkedList<String> cachedFiles = new LinkedList<>();
+    private ImageLoadTask loadTask;
 
     public UrlTouchImageView(Context ctx)
     {
@@ -95,8 +97,16 @@ public class UrlTouchImageView extends RelativeLayout {
     public void setUrl(URL imageUrl, int maxWidth, int maxHeight, boolean enableTouchAfterDone)
     {
 //        Log.d(TAG, String.format("setUrl(%s, %d, %d), touchEnabled=%s", imageUrl, maxWidth, maxHeight, enableTouchAfterDone));
-        new ImageLoadTask().setSizeLimit(maxWidth, maxHeight)
-                .setEnableTouchAfterDone(enableTouchAfterDone).execute(imageUrl);
+        if (loadTask != null && !loadTask.finished && TextUtils.equals(
+                loadTask.url.toExternalForm(),
+                imageUrl.toExternalForm())) {
+            loadTask.setSizeLimit(maxWidth, maxHeight)
+                    .setEnableTouchAfterDone(enableTouchAfterDone);
+        } else {
+            loadTask = new ImageLoadTask().setSizeLimit(maxWidth, maxHeight)
+                    .setEnableTouchAfterDone(enableTouchAfterDone);
+            loadTask.execute(imageUrl);
+        }
     }
 
     public void setScaleType(ScaleType scaleType) {
@@ -106,6 +116,8 @@ public class UrlTouchImageView extends RelativeLayout {
     //No caching load
     public class ImageLoadTask extends AsyncTask<URL, Integer, Bitmap>
     {
+        public URL url;
+        public boolean finished;
         int maxWidth;
         int maxHeight;
         BitmapRegionDecoder regionDecoder;
@@ -131,28 +143,29 @@ public class UrlTouchImageView extends RelativeLayout {
         @TargetApi(Build.VERSION_CODES.GINGERBREAD_MR1)
         @Override
         protected Bitmap doInBackground(URL... urls) {
-            URL aURL = urls[0];
+            url = urls[0];
+            finished = false;
             Bitmap bm = null;
 
-            if (aURL == null)
+            if (url == null)
                 return bm;
 
             try {
                 // although a URL of file protocol can also be handled properly by
                 // stream, to avoid temp file, we decode local file without using
                 // stream.
-                if (aURL.getProtocol().equals("file")) {
-                    bm = decodeBmp(aURL.getFile());
+                if (url.getProtocol().equals("file")) {
+                    bm = decodeBmp(url.getFile());
                     if (Build.VERSION.SDK_INT >= 10)
-                        regionDecoder = BitmapRegionDecoder.newInstance(aURL.getFile(), true);
+                        regionDecoder = BitmapRegionDecoder.newInstance(url.getFile(), true);
                 } else {
-                    String cachePath = getCachePath(aURL);
+                    String cachePath = getCachePath(url);
                     if (new File(cachePath).exists()) {
                         bm = decodeBmp(cachePath);
                     }
 
                     if (bm == null) {
-                        URLConnection conn = aURL.openConnection();
+                        URLConnection conn = url.openConnection();
                         conn.connect();
                         InputStream is = conn.getInputStream();
                         int totalLen = conn.getContentLength();
@@ -165,7 +178,7 @@ public class UrlTouchImageView extends RelativeLayout {
                             }
                         });
 
-                        String downloadPath = getDownloaPath(aURL);
+                        String downloadPath = getDownloaPath(url);
                         // download to downloadPath
                         copy(bis, new File(downloadPath));
                         // copy to cachePath
@@ -213,6 +226,7 @@ public class UrlTouchImageView extends RelativeLayout {
                 mImageView.touchEnabled = touchEnabledAfterDone;
 
             mBmp = bitmap;
+            finished = true;
         }
 
 		@Override
