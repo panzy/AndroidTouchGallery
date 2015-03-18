@@ -38,6 +38,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.LinkedList;
+import java.util.concurrent.Executor;
 
 public class UrlTouchImageView extends RelativeLayout {
     private static final String TAG = "UrlTouchImageView";
@@ -50,6 +51,15 @@ public class UrlTouchImageView extends RelativeLayout {
 
     LinkedList<String> cachedFiles = new LinkedList<>();
     private ImageLoadTask loadTask;
+
+    private Executor networkExecutor = new Executor()
+    {
+        @Override
+        public void execute(Runnable runnable)
+        {
+            new Thread(runnable).start();
+        }
+    };
 
     public UrlTouchImageView(Context ctx)
     {
@@ -105,7 +115,11 @@ public class UrlTouchImageView extends RelativeLayout {
         } else {
             loadTask = new ImageLoadTask().setSizeLimit(maxWidth, maxHeight)
                     .setEnableTouchAfterDone(enableTouchAfterDone);
-            loadTask.execute(imageUrl);
+            if (Build.VERSION.SDK_INT > 11) {
+                loadTask.executeOnExecutor(networkExecutor, imageUrl);
+            } else {
+                loadTask.execute(imageUrl);
+            }
         }
     }
 
@@ -236,7 +250,7 @@ public class UrlTouchImageView extends RelativeLayout {
 		}
 
         private void copy(InputStream in, File dst) throws IOException {
-
+            //Log.d(TAG, "begin download -> " + dst.getAbsolutePath());
             OutputStream out = new FileOutputStream(dst);
 
             // Transfer bytes from in to out
@@ -244,9 +258,11 @@ public class UrlTouchImageView extends RelativeLayout {
             int len;
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
+                //Log.d(TAG, "download in progress");
             }
             in.close();
             out.close();
+            //Log.d(TAG, "end download");
         }
 
         private Bitmap decodeBmp(String filename) throws IOException {
