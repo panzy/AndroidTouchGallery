@@ -141,7 +141,7 @@ public class UrlPagerAdapter extends BasePagerAdapter {
         msg.obj = object;
         msg.arg1 = position;
         handler.removeMessages(MSG_LOAD_LARGE_IMG);
-        handler.sendMessageDelayed(msg, 600);
+        handler.sendMessageDelayed(msg, 400);
 
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();
