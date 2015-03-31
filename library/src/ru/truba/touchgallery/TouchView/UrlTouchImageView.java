@@ -21,7 +21,8 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapRegionDecoder;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.text.TextUtils;
@@ -134,7 +135,7 @@ public class UrlTouchImageView extends RelativeLayout {
         public boolean finished;
         int maxWidth;
         int maxHeight;
-        BitmapRegionDecoder regionDecoder;
+        RotationBitmapRegionDecoder regionDecoder;
         boolean touchEnabledAfterDone;
 
         public ImageLoadTask setSizeLimit(int w, int h) {
@@ -169,13 +170,19 @@ public class UrlTouchImageView extends RelativeLayout {
                 // stream, to avoid temp file, we decode local file without using
                 // stream.
                 if (url.getProtocol().equals("file")) {
-                    bm = decodeBmp(url.getFile());
-                    if (Build.VERSION.SDK_INT >= 10)
-                        regionDecoder = BitmapRegionDecoder.newInstance(url.getFile(), true);
+                    int rotationDegress = getRotationDegress(url.getFile());
+                    bm = decodeBmp(url.getFile(), rotationDegress);
+                    if (Build.VERSION.SDK_INT >= 10) {
+                        regionDecoder = RotationBitmapRegionDecoder.newInstance(url.getFile());
+                        if (rotationDegress != 0)
+                            regionDecoder.setRotation(rotationDegress);
+                    }
                 } else {
                     String cachePath = getCachePath(url);
+                    int rotationDegress = 0;
                     if (new File(cachePath).exists()) {
-                        bm = decodeBmp(cachePath);
+                        rotationDegress = getRotationDegress(cachePath);
+                        bm = decodeBmp(cachePath, rotationDegress);
                     }
 
                     if (bm == null) {
@@ -197,15 +204,19 @@ public class UrlTouchImageView extends RelativeLayout {
                         copy(bis, new File(downloadPath));
                         // copy to cachePath
                         new File(downloadPath).renameTo(new File(cachePath));
-                        bm = decodeBmp(cachePath);
+                        rotationDegress = getRotationDegress(cachePath);
+                        bm = decodeBmp(cachePath, rotationDegress);
                         cachedFiles.add(cachePath);
 
                         bis.close();
                         is.close();
                     }
 
-                    if (Build.VERSION.SDK_INT >= 10 && bm != null)
-                        regionDecoder = BitmapRegionDecoder.newInstance(cachePath, true);
+                    if (Build.VERSION.SDK_INT >= 10 && bm != null) {
+                        regionDecoder = RotationBitmapRegionDecoder.newInstance(cachePath);
+                        if (rotationDegress != 0)
+                            regionDecoder.setRotation(rotationDegress);
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -265,10 +276,11 @@ public class UrlTouchImageView extends RelativeLayout {
             //Log.d(TAG, "end download");
         }
 
-        private Bitmap decodeBmp(String filename) throws IOException {
+        private Bitmap decodeBmp(String filename, int rotationDegress) throws IOException {
+            BitmapFactory.Options options = null;
             if (maxWidth > 0 && maxHeight > 0) {
                 // First decode with inJustDecodeBounds=true to check dimensions
-                final BitmapFactory.Options options = new BitmapFactory.Options();
+                options = new BitmapFactory.Options();
                 options.inJustDecodeBounds = true;
                 BitmapFactory.decodeFile(filename, options);
 
@@ -277,9 +289,16 @@ public class UrlTouchImageView extends RelativeLayout {
 
                 // Decode bitmap with inSampleSize set
                 options.inJustDecodeBounds = false;
-                return BitmapFactory.decodeFile(filename, options);
+            }
+
+            Bitmap bmp = BitmapFactory.decodeFile(filename, options);
+
+            // rotate according to Exif
+            //int rotationDegress = getRotationDegress(filename);
+            if (rotationDegress != 0) {
+                return rotateBmp(bmp, rotationDegress);
             } else {
-                return BitmapFactory.decodeFile(filename);
+                return bmp;
             }
         }
 
@@ -320,6 +339,25 @@ public class UrlTouchImageView extends RelativeLayout {
 
             return inSampleSize;
         }
+    }
+
+    private Bitmap rotateBmp(Bitmap bmp, int rotationDegress) {
+        Matrix matrix = new Matrix();
+        matrix.setRotate(rotationDegress);
+        return Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), matrix, true);
+    }
+
+    private int getRotationDegress(String filename) throws IOException {
+        ExifInterface exif = new ExifInterface(filename);
+        int rotation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+        return exifToDegrees(rotation);
+    }
+
+    private static int exifToDegrees(int exifOrientation) {
+        if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) { return 90; }
+        else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {  return 180; }
+        else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {  return 270; }
+        return 0;
     }
 
     private String getDownloaPath(URL url) {

@@ -77,7 +77,7 @@ public class TouchImageView extends ImageView {
 
     Bitmap overlapBmp;
     Rect overlapBmpDstRect = new Rect();
-    BitmapRegionDecoder regionDecoder;
+    BitmapRegionDecodingDelegate regionDecoder;
     Rect currVisibleRegion = new Rect();
     Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
 
@@ -532,7 +532,7 @@ public class TouchImageView extends ImageView {
         setImageBitmap(bm, null);
     }
 
-    public void setImageBitmap(Bitmap bm, BitmapRegionDecoder decoder) {
+    public void setImageBitmap(Bitmap bm, BitmapRegionDecodingDelegate decoder) {
         super.setImageBitmap(bm);
         bmWidth = bm.getWidth();
         bmHeight = bm.getHeight();
@@ -873,4 +873,13 @@ public class TouchImageView extends ImageView {
             if (mService.get().mOnClickListener != null) mService.get().mOnClickListener.onClick(mService.get());
 	    }
 	}
-};
+
+    /**
+     * Like {@link BitmapRegionDecoder}.
+     */
+    public interface BitmapRegionDecodingDelegate {
+        Bitmap decodeRegion(Rect rect, BitmapFactory.Options options);
+        int getHeight();
+        int getWidth();
+    }
+}
