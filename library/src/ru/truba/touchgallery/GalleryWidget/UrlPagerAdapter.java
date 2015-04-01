@@ -136,12 +136,16 @@ public class UrlPagerAdapter extends BasePagerAdapter {
             currUrlTouchImageView.setUrl(mUrls.get(mCurrentPosition), maxPreloadWidth, maxPreloadHeight, false);
         }
 
-        Message msg = new Message();
-        msg.what = MSG_LOAD_LARGE_IMG;
-        msg.obj = object;
-        msg.arg1 = position;
-        handler.removeMessages(MSG_LOAD_LARGE_IMG);
-        handler.sendMessageDelayed(msg, 400);
+        // need to load large image?
+        if (mCurrentPosition != position
+                || ((UrlTouchImageView)object).getMaxImageWidth() < maxWidth) {
+            Message msg = new Message();
+            msg.what = MSG_LOAD_LARGE_IMG;
+            msg.obj = object;
+            msg.arg1 = position;
+            handler.removeMessages(MSG_LOAD_LARGE_IMG);
+            handler.sendMessageDelayed(msg, 400);
+        }
 
         super.setPrimaryItem(container, position, object);
         ((GalleryViewPager)container).mCurrentView = ((UrlTouchImageView)object).getImageView();

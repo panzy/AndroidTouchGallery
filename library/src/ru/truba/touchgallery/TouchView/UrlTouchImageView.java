@@ -124,6 +124,10 @@ public class UrlTouchImageView extends RelativeLayout {
         }
     }
 
+    public int getMaxImageWidth() {
+        return loadTask != null ? loadTask.maxWidth : 0;
+    }
+
     public void setScaleType(ScaleType scaleType) {
         mImageView.setScaleType(scaleType);
     }
