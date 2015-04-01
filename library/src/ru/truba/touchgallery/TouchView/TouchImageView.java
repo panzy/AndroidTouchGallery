@@ -283,10 +283,21 @@ public class TouchImageView extends ImageView {
                             long pressTime = System.currentTimeMillis();
                             if (pressTime - lastPressTime <= DOUBLE_PRESS_INTERVAL) {
                                 if (mClickTimer != null) mClickTimer.cancel();
-                                if (saveScale == 1) {
-                                    final float targetScale = normalizedScale / saveScale;
-                                    saveScale = normalizedScale;
 
+                                // double tapping changes scale: min -> normalized -> max -> min
+                                float scaleFactor;
+                                if (saveScale < normalizedScale) {
+                                    scaleFactor = normalizedScale / saveScale;
+                                    saveScale = normalizedScale;
+                                } else if (saveScale < maxScale()) {
+                                    scaleFactor = maxScale() / saveScale;
+                                    saveScale = maxScale();
+                                } else {
+                                    scaleFactor = MIN_SCALE / saveScale;
+                                    saveScale = MIN_SCALE;
+                                }
+
+                                if (scaleFactor < 0.99 || scaleFactor > 1.01) {
                                     // if drag is not needed on max scale, center the img,
                                     // otherwise, center the touch point.
                                     float scaleWidth = Math.round(origWidth * saveScale);
@@ -294,10 +305,9 @@ public class TouchImageView extends ImageView {
                                     float centerX = (scaleWidth < width) ? width / 2 : start.x;
                                     float centerY = (scaleHeight < height) ? height / 2 : start.y;
 
-                                    matrix.postScale(targetScale, targetScale, centerX, centerY);
-                                } else {
-                                    resetScale();
+                                    matrix.postScale(scaleFactor, scaleFactor, centerX, centerY);
                                 }
+
                                 calcPadding();
                                 checkAndSetTranslate(0, 0);
                                 lastPressTime = 0;
