@@ -314,6 +314,14 @@ public class TouchImageView extends ImageView {
                         break;
 
                     case MotionEvent.ACTION_POINTER_UP:
+                        if (mode == ZOOM) {
+                            if (saveScale > maxScale()) {
+                                float mScaleFactor = maxScale() / saveScale;
+                                saveScale = maxScale();
+                                zoomBy(mScaleFactor, midPointF(event));
+                            }
+                        }
+
                         mode = NONE;
                         velocity = 0;
                         savedMatrix.set(matrix);
@@ -346,39 +354,10 @@ public class TouchImageView extends ImageView {
 
                             float origScale = saveScale;
                             saveScale *= mScaleFactor;
-                            if (saveScale > maxScale()) {
-                                saveScale = maxScale();
-                                mScaleFactor = maxScale() / origScale;
-                            } else if (saveScale < MIN_SCALE) {
-                                saveScale = MIN_SCALE;
-                                mScaleFactor = MIN_SCALE / origScale;
-                            }
+                            mScaleFactor = limitScale(mScaleFactor, origScale);
 
-                            calcPadding();
-                            if (origWidth * saveScale <= width || origHeight * saveScale <= height) {
-                                matrix.postScale(mScaleFactor, mScaleFactor, width / 2, height / 2);
-                                if (mScaleFactor < 1) {
-                                    fillMatrixXY();
-                                    if (mScaleFactor < 1) {
-                                        scaleMatrixToBounds();
-                                    }
-                                }
-                            } else {
-                                PointF mid = midPointF(event);
-                                matrix.postScale(mScaleFactor, mScaleFactor, mid.x, mid.y);
-                                fillMatrixXY();
-                                if (mScaleFactor < 1) {
-                                    if (matrixX < -right)
-                                        matrix.postTranslate(-(matrixX + right), 0);
-                                    else if (matrixX > 0)
-                                        matrix.postTranslate(-matrixX, 0);
-                                    if (matrixY < -bottom)
-                                        matrix.postTranslate(0, -(matrixY + bottom));
-                                    else if (matrixY > 0)
-                                        matrix.postTranslate(0, -matrixY);
-                                }
-                            }
-                            checkSiding();
+                            if (mScaleFactor <= 0.99 || mScaleFactor >= 1.01)
+                                zoomBy(mScaleFactor, midPointF(event));
                         }
                         break;
                 }
@@ -394,7 +373,50 @@ public class TouchImageView extends ImageView {
                 invalidate();
                 return false;
             }
+
+            private void zoomBy(float mScaleFactor, PointF center) {
+                calcPadding();
+                if (origWidth * saveScale <= width || origHeight * saveScale <= height) {
+                    matrix.postScale(mScaleFactor, mScaleFactor, width / 2, height / 2);
+                    if (mScaleFactor < 1) {
+                        fillMatrixXY();
+                        if (mScaleFactor < 1) {
+                            scaleMatrixToBounds();
+                        }
+                    }
+                } else {
+                    matrix.postScale(mScaleFactor, mScaleFactor, center.x, center.y);
+                    fillMatrixXY();
+                    if (mScaleFactor < 1) {
+                        if (matrixX < -right)
+                            matrix.postTranslate(-(matrixX + right), 0);
+                        else if (matrixX > 0)
+                            matrix.postTranslate(-matrixX, 0);
+                        if (matrixY < -bottom)
+                            matrix.postTranslate(0, -(matrixY + bottom));
+                        else if (matrixY > 0)
+                            matrix.postTranslate(0, -matrixY);
+                    }
+                }
+                checkSiding();
+            }
+
         });
+    }
+
+    protected float limitScale(float scaleFactor, float origScale) {
+        if (saveScale > maxScale()) {
+            scaleFactor *= 0.98; // it become harder to zoom in further
+            if (scaleFactor <= 1.0) {
+                // cancel
+                saveScale = origScale;
+            }
+            saveScale = origScale * scaleFactor;
+        } else if (saveScale < MIN_SCALE) {
+            saveScale = MIN_SCALE;
+            scaleFactor = MIN_SCALE / origScale;
+        }
+        return scaleFactor;
     }
 
     public void resetScale()
@@ -823,13 +845,11 @@ public class TouchImageView extends ImageView {
             float mScaleFactor = (float)Math.min(Math.max(.95f, detector.getScaleFactor()), 1.05);
             float origScale = saveScale;
             saveScale *= mScaleFactor;
-            if (saveScale > maxScale()) {
-                saveScale = maxScale();
-                mScaleFactor = maxScale() / origScale;
-            } else if (saveScale < MIN_SCALE) {
-                saveScale = MIN_SCALE;
-                mScaleFactor = MIN_SCALE / origScale;
-            }
+            mScaleFactor = limitScale(mScaleFactor, origScale);
+
+            if (mScaleFactor > 0.99 && mScaleFactor < 1.01)
+                return true;
+
             right = width * saveScale - width - (2 * redundantXSpace * saveScale);
             bottom = height * saveScale - height - (2 * redundantYSpace * saveScale);
             if (origWidth * saveScale <= width || origHeight * saveScale <= height) {
