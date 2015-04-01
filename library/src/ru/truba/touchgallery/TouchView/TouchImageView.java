@@ -88,15 +88,25 @@ public class TouchImageView extends ImageView {
     float[] m;
     float matrixX, matrixY;
 
+    /*
+    scale:
+
+    MIN <= save <= MAX
+    MIN <= normalized == MAX/2
+    MIN = 1
+    MAX is initialized depending on image size and view size.
+     */
     /** minimum of saveScale */
-    final float MIN_SCALE = 1f;
-    /** maximum of saveScale, will be calculated later.
-     *
-     * When saveScale reach maxScale, the image will be displayed as
-     * 1:1 if it's larger than screen, or fit the screen.*/
-    float maxScale = 2.0f;
+    final static float MIN_SCALE = 1f;
     /** define as 1 when img fits screen */
     float saveScale = 1f;
+    /**
+     * When saveScale reach normalizedScale, the image will be displayed as
+     * 1:1, or fit the screen if its instinct size is smaller than screen.
+     *
+     * Will be calculated later.
+     * */
+    float normalizedScale = 1.0f;
 
     float oldDist = 1f;
 
@@ -105,7 +115,7 @@ public class TouchImageView extends ImageView {
 
     long lastPressTime = 0, lastDragTime = 0;
     boolean allowInert = false;
-    
+
     private Context mContext;
     private Timer mClickTimer;
     private OnClickListener mOnClickListener;
@@ -123,9 +133,13 @@ public class TouchImageView extends ImageView {
 
     public void setZoomToOriginalSize(boolean zoomToOriginalSize) {
         this.zoomToOriginalSize = zoomToOriginalSize;
-    }    
+    }
 
     public boolean onLeftSide = false, onTopSide = false, onRightSide = false, onBottomSide = false;
+
+    private float maxScale() {
+        return normalizedScale * 2;
+    }
 
     private static class UIHandler extends Handler {
         public static final int MSG_INVALIDATE = 1;
@@ -209,7 +223,7 @@ public class TouchImageView extends ImageView {
 
         init();
     }
-    
+
 	protected void init()
     {
 //        bmpPaint.setAlpha(100); // half transparent for testing
@@ -270,8 +284,8 @@ public class TouchImageView extends ImageView {
                             if (pressTime - lastPressTime <= DOUBLE_PRESS_INTERVAL) {
                                 if (mClickTimer != null) mClickTimer.cancel();
                                 if (saveScale == 1) {
-                                    final float targetScale = maxScale / saveScale;
-                                    saveScale = maxScale;
+                                    final float targetScale = normalizedScale / saveScale;
+                                    saveScale = normalizedScale;
 
                                     // if drag is not needed on max scale, center the img,
                                     // otherwise, center the touch point.
@@ -332,9 +346,9 @@ public class TouchImageView extends ImageView {
 
                             float origScale = saveScale;
                             saveScale *= mScaleFactor;
-                            if (saveScale > maxScale) {
-                                saveScale = maxScale;
-                                mScaleFactor = maxScale / origScale;
+                            if (saveScale > maxScale()) {
+                                saveScale = maxScale();
+                                mScaleFactor = maxScale() / origScale;
                             } else if (saveScale < MIN_SCALE) {
                                 saveScale = MIN_SCALE;
                                 mScaleFactor = MIN_SCALE / origScale;
@@ -552,29 +566,29 @@ public class TouchImageView extends ImageView {
         invalidate();
     }
 
-    // calc max scale, if view size hasn't been initialized yet,
-    // set max scale to min scale.
+    // calc normalized and max scale, if view size hasn't been initialized yet,
+    // set normal scale to min scale.
     private void resetMaxScale() {
         if (width > 1) {
             if (regionDecoder != null) {
-                maxScale = Math.max(origBmWidth / bmWidth,
+                normalizedScale = Math.max(origBmWidth / bmWidth,
                         Math.max(bmWidth / width, bmHeight / height));
             } else {
-                maxScale = Math.max(bmWidth / width, bmHeight / height);
+                normalizedScale = Math.max(bmWidth / width, bmHeight / height);
             }
         } else {
-            maxScale = MIN_SCALE;
+            normalizedScale = MIN_SCALE;
         }
 
         matrix.getValues(m);
-        maxScale /= m[Matrix.MSCALE_X];
+        normalizedScale /= m[Matrix.MSCALE_X];
 
         // little img, large screen...
-        if (maxScale < MIN_SCALE)
-            maxScale = MIN_SCALE;
+        if (normalizedScale < MIN_SCALE)
+            normalizedScale = MIN_SCALE;
 
         Log.d(TAG, String.format("scale: init matrix = %f, saved = %f, max = %f, min = %f",
-                m[Matrix.MSCALE_X], saveScale, maxScale, MIN_SCALE));
+                m[Matrix.MSCALE_X], saveScale, maxScale(), MIN_SCALE));
     }
 
     @Override
@@ -809,9 +823,9 @@ public class TouchImageView extends ImageView {
             float mScaleFactor = (float)Math.min(Math.max(.95f, detector.getScaleFactor()), 1.05);
             float origScale = saveScale;
             saveScale *= mScaleFactor;
-            if (saveScale > maxScale) {
-                saveScale = maxScale;
-                mScaleFactor = maxScale / origScale;
+            if (saveScale > maxScale()) {
+                saveScale = maxScale();
+                mScaleFactor = maxScale() / origScale;
             } else if (saveScale < MIN_SCALE) {
                 saveScale = MIN_SCALE;
                 mScaleFactor = MIN_SCALE / origScale;
