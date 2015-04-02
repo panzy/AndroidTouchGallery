@@ -28,6 +28,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
+import junit.framework.Assert;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
@@ -41,10 +42,8 @@ public class TouchImageView extends ImageView {
 
     public boolean touchEnabled = true;
 
-    // private static final String TAG = "Touch";
-    // These matrices will be used to move and zoom image
+    // This matrix will be used to move and zoom image
     Matrix matrix = new Matrix();
-    Matrix savedMatrix = new Matrix();
 
     static final long DOUBLE_PRESS_INTERVAL = 300;
     static final float FRICTION = 0.9f;
@@ -56,37 +55,40 @@ public class TouchImageView extends ImageView {
     static final int CLICK = 10;
     int mode = NONE;
 
-    float redundantXSpace, redundantYSpace;
-    /**
-     * the X position of image should be between [-right, 0].
-     */
-    float right, bottom;
-    /**
+    // ------- sizes --------------
+
+    /** View size */
+    float viewWidth, viewHeight;
+    /** decoded image size */
+    float imgWidth, imgHeight;
+    /** original image size, retrieved from
+     * {@link ru.truba.touchgallery.TouchView.TouchImageView.BitmapRegionDecodingDelegate}. */
+    int origImgWidth, origImgHeight;
+    /** Size of image when it fits the view.
      * <ul>
-     * <li> origWidth = width - 2 * redundantXSpace;</li>
-     * <li> origHeight = height - 2 * redundantYSpace;</li>
+     * <li> fitBmpWidth = viewWidth - 2 * redundantXSpace;</li>
+     * <li> fitBmpHeight = viewHeight - 2 * redundantYSpace;</li>
      * </ul>
      */
-    float origWidth, origHeight;
-    /** bitmap size */
-    float bmWidth, bmHeight;
-    /** View size */
-    float width, height;
-    /** original bmp size, retrieved from BitmapRegionDecoder. */
-    int origBmWidth, origBmHeight;
+    float fitBmpWidth, fitBmpHeight;
+    /** Redundant space of view when image fits view.
+     *
+     * At least one of these two space should be zero.
+     *
+     * These values are determined by the aspect ratio of the image
+     * and the size of the view, while the zooming and translating of
+     * image don't matter.*/
+    float redundantXSpace, redundantYSpace;
+    /** Diff of scaled image size and view size,
+     * a.k.a the maximum translating range.
+     *
+     * These values change when zooming.
+     *
+     * The X position of image should be between [-outsideXSpace, 0].
+     */
+    float outsideXSpace, outsideYSpace;
 
-    Bitmap overlapBmp;
-    Rect overlapBmpDstRect = new Rect();
-    BitmapRegionDecodingDelegate regionDecoder;
-    Rect currVisibleRegion = new Rect();
-    Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-
-
-    PointF last = new PointF();
-    PointF mid = new PointF();
-    PointF start = new PointF();
-    float[] m;
-    float matrixX, matrixY;
+    // ------- scales --------------
 
     /*
     scale:
@@ -96,10 +98,10 @@ public class TouchImageView extends ImageView {
     MIN = 1
     MAX is initialized depending on image size and view size.
      */
-    /** minimum of saveScale */
-    final static float MIN_SCALE = 1f;
     /** define as 1 when img fits screen */
     float saveScale = 1f;
+    /** minimum of saveScale */
+    final static float MIN_SCALE = 1f;
     /**
      * When saveScale reach normalizedScale, the image will be displayed as
      * 1:1, or fit the screen if its instinct size is smaller than screen.
@@ -107,6 +109,20 @@ public class TouchImageView extends ImageView {
      * Will be calculated later.
      * */
     float normalizedScale = 1.0f;
+
+    // ------- end --------------
+
+    Bitmap overlapBmp;
+    Rect overlapBmpDstRect = new Rect();
+    BitmapRegionDecodingDelegate regionDecoder;
+    Rect currVisibleRegion = new Rect();
+    Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+
+    PointF last = new PointF();
+    PointF mid = new PointF();
+    PointF start = new PointF();
+    float[] m;
+    float matrixX, matrixY;
 
     float oldDist = 1f;
 
@@ -255,7 +271,6 @@ public class TouchImageView extends ImageView {
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
                         allowInert = false;
-                        savedMatrix.set(matrix);
                         last.set(event.getX(), event.getY());
                         start.set(last);
                         mode = DRAG;
@@ -265,7 +280,6 @@ public class TouchImageView extends ImageView {
                         oldDist = spacing(event);
                         //Log.d(TAG, "oldDist=" + oldDist);
                         if (oldDist > 10f) {
-                            savedMatrix.set(matrix);
                             midPoint(mid, event);
                             mode = ZOOM;
                             //Log.d(TAG, "mode=ZOOM");
@@ -300,10 +314,10 @@ public class TouchImageView extends ImageView {
                                 if (scaleFactor < 0.99 || scaleFactor > 1.01) {
                                     // if drag is not needed on max scale, center the img,
                                     // otherwise, center the touch point.
-                                    float scaleWidth = Math.round(origWidth * saveScale);
-                                    float scaleHeight = Math.round(origHeight * saveScale);
-                                    float centerX = (scaleWidth < width) ? width / 2 : start.x;
-                                    float centerY = (scaleHeight < height) ? height / 2 : start.y;
+                                    float scaleWidth = Math.round(fitBmpWidth * saveScale);
+                                    float scaleHeight = Math.round(fitBmpHeight * saveScale);
+                                    float centerX = (scaleWidth < viewWidth) ? viewWidth / 2 : start.x;
+                                    float centerY = (scaleHeight < viewHeight) ? viewHeight / 2 : start.y;
 
                                     matrix.postScale(scaleFactor, scaleFactor, centerX, centerY);
                                 }
@@ -316,7 +330,7 @@ public class TouchImageView extends ImageView {
                                 mClickTimer = new Timer();
                                 mClickTimer.schedule(new Task(), 300);
                             }
-                            if (saveScale == MIN_SCALE) {
+                            if (scaleEqual(saveScale, MIN_SCALE)) {
                                 scaleMatrixToBounds();
                             }
                         }
@@ -334,7 +348,6 @@ public class TouchImageView extends ImageView {
 
                         mode = NONE;
                         velocity = 0;
-                        savedMatrix.set(matrix);
                         oldDist = spacing(event);
                         //Log.d(TAG, "mode=NONE");
                         break;
@@ -362,9 +375,8 @@ public class TouchImageView extends ImageView {
                             float mScaleFactor = newDist / oldDist;
                             oldDist = newDist;
 
-                            float origScale = saveScale;
+                            mScaleFactor = limitScale(mScaleFactor);
                             saveScale *= mScaleFactor;
-                            mScaleFactor = limitScale(mScaleFactor, origScale);
 
                             if (mScaleFactor <= 0.99 || mScaleFactor >= 1.01)
                                 zoomBy(mScaleFactor, midPointF(event));
@@ -386,8 +398,8 @@ public class TouchImageView extends ImageView {
 
             private void zoomBy(float mScaleFactor, PointF center) {
                 calcPadding();
-                if (origWidth * saveScale <= width || origHeight * saveScale <= height) {
-                    matrix.postScale(mScaleFactor, mScaleFactor, width / 2, height / 2);
+                if (fitBmpWidth * saveScale <= viewWidth || fitBmpHeight * saveScale <= viewHeight) {
+                    matrix.postScale(mScaleFactor, mScaleFactor, viewWidth / 2, viewHeight / 2);
                     if (mScaleFactor < 1) {
                         fillMatrixXY();
                         if (mScaleFactor < 1) {
@@ -398,12 +410,12 @@ public class TouchImageView extends ImageView {
                     matrix.postScale(mScaleFactor, mScaleFactor, center.x, center.y);
                     fillMatrixXY();
                     if (mScaleFactor < 1) {
-                        if (matrixX < -right)
-                            matrix.postTranslate(-(matrixX + right), 0);
+                        if (matrixX < -outsideXSpace)
+                            matrix.postTranslate(-(matrixX + outsideXSpace), 0);
                         else if (matrixX > 0)
                             matrix.postTranslate(-matrixX, 0);
-                        if (matrixY < -bottom)
-                            matrix.postTranslate(0, -(matrixY + bottom));
+                        if (matrixY < -outsideYSpace)
+                            matrix.postTranslate(0, -(matrixY + outsideYSpace));
                         else if (matrixY > 0)
                             matrix.postTranslate(0, -matrixY);
                     }
@@ -414,17 +426,14 @@ public class TouchImageView extends ImageView {
         });
     }
 
-    protected float limitScale(float scaleFactor, float origScale) {
-        if (saveScale > maxScale()) {
+    protected float limitScale(float scaleFactor) {
+        if (saveScale * scaleFactor > maxScale()) {
             scaleFactor *= 0.98; // it become harder to zoom in further
-            if (scaleFactor <= 1.0) {
-                // cancel
-                saveScale = origScale;
+            if (scaleFactor < 1.0) {
+                scaleFactor = 1;
             }
-            saveScale = origScale * scaleFactor;
-        } else if (saveScale < MIN_SCALE) {
-            saveScale = MIN_SCALE;
-            scaleFactor = MIN_SCALE / origScale;
+        } else if (saveScale * scaleFactor < MIN_SCALE) {
+            scaleFactor = 1; // don't zoom
         }
         return scaleFactor;
     }
@@ -432,7 +441,7 @@ public class TouchImageView extends ImageView {
     public void resetScale()
     {
         fillMatrixXY();
-        matrix.postScale(MIN_SCALE / saveScale, MIN_SCALE / saveScale, width / 2, height / 2);
+        matrix.postScale(MIN_SCALE / saveScale, MIN_SCALE / saveScale, viewWidth / 2, viewHeight / 2);
         saveScale = MIN_SCALE;
 
         calcPadding();
@@ -448,7 +457,7 @@ public class TouchImageView extends ImageView {
     public boolean pagerCanScroll()
     {
         if (mode != NONE) return false;
-        return saveScale == MIN_SCALE;
+        return scaleEqual(saveScale, MIN_SCALE);
     }
 
     @Override
@@ -462,7 +471,7 @@ public class TouchImageView extends ImageView {
         // translate with inertia
         final float deltaX = lastDelta.x * velocity, deltaY = lastDelta.y * velocity;
         //Log.d(TAG, "delta = " + deltaX + ", " + deltaY);
-        if (deltaX > width || deltaY > height)
+        if (deltaX > viewWidth || deltaY > viewHeight)
         {
             if (mode == NONE) {
                 clipBmpRegion();
@@ -511,32 +520,32 @@ public class TouchImageView extends ImageView {
 
     private void checkAndSetTranslate(float deltaX, float deltaY)
     {
-        float scaleWidth = Math.round(origWidth * saveScale);
-        float scaleHeight = Math.round(origHeight * saveScale);
+        float scaleWidth = Math.round(fitBmpWidth * saveScale);
+        float scaleHeight = Math.round(fitBmpHeight * saveScale);
         fillMatrixXY();
-        if (scaleWidth < width) {
+        if (scaleWidth < viewWidth) {
             deltaX = 0;
             if (matrixY + deltaY > 0)
                 deltaY = -matrixY;
-            else if (matrixY + deltaY < -bottom)
-                deltaY = -(matrixY + bottom);
-        } else if (scaleHeight < height) {
+            else if (matrixY + deltaY < -outsideYSpace)
+                deltaY = -(matrixY + outsideYSpace);
+        } else if (scaleHeight < viewHeight) {
             deltaY = 0;
             if (matrixX + deltaX > 0)
                 deltaX = -matrixX;
-            else if (matrixX + deltaX < -right)
-                deltaX = -(matrixX + right);
+            else if (matrixX + deltaX < -outsideXSpace)
+                deltaX = -(matrixX + outsideXSpace);
         }
         else {
             if (matrixX + deltaX > 0)
                 deltaX = -matrixX;
-            else if (matrixX + deltaX < -right)
-                deltaX = -(matrixX + right);
+            else if (matrixX + deltaX < -outsideXSpace)
+                deltaX = -(matrixX + outsideXSpace);
 
             if (matrixY + deltaY > 0)
                 deltaY = -matrixY;
-            else if (matrixY + deltaY < -bottom)
-                deltaY = -(matrixY + bottom);
+            else if (matrixY + deltaY < -outsideYSpace)
+                deltaY = -(matrixY + outsideYSpace);
         }
         matrix.postTranslate(deltaX, deltaY);
         checkSiding();
@@ -544,35 +553,39 @@ public class TouchImageView extends ImageView {
     private void checkSiding()
     {
         fillMatrixXY();
-        //Log.d(TAG, "x: " + matrixX + " y: " + matrixY + " left: " + right / 2 + " top:" + bottom / 2);
-        float scaleWidth = Math.round(origWidth * saveScale);
-        float scaleHeight = Math.round(origHeight * saveScale);
+        //Log.d(TAG, "x: " + matrixX + " y: " + matrixY + " left: " + outsideXSpace / 2 + " top:" + outsideYSpace / 2);
+        float scaleWidth = Math.round(fitBmpWidth * saveScale);
+        float scaleHeight = Math.round(fitBmpHeight * saveScale);
         onLeftSide = onRightSide = onTopSide = onBottomSide = false;
         if (-matrixX < 10.0f ) onLeftSide = true;
-        //Log.d("GalleryViewPager", String.format("ScaleW: %f; W: %f, MatrixX: %f", scaleWidth, width, matrixX));
-        if ((scaleWidth >= width && (matrixX + scaleWidth - width) < 10) ||
-            (scaleWidth <= width && -matrixX + scaleWidth <= width)) onRightSide = true;
+        //Log.d("GalleryViewPager", String.format("ScaleW: %f; W: %f, MatrixX: %f", scaleWidth, viewWidth, matrixX));
+        if ((scaleWidth >= viewWidth && (matrixX + scaleWidth - viewWidth) < 10) ||
+            (scaleWidth <= viewWidth && -matrixX + scaleWidth <= viewWidth)) onRightSide = true;
         if (-matrixY < 10.0f) onTopSide = true;
-        if (Math.abs(-matrixY + height - scaleHeight) < 10.0f) onBottomSide = true;
+        if (Math.abs(-matrixY + viewHeight - scaleHeight) < 10.0f) onBottomSide = true;
     }
+
     private void calcPadding()
     {
-        right = width * saveScale - width - (2 * redundantXSpace * saveScale);
-        bottom = height * saveScale - height - (2 * redundantYSpace * saveScale);
+        outsideXSpace = viewWidth * saveScale - viewWidth - (2 * redundantXSpace * saveScale);
+        outsideYSpace = viewHeight * saveScale - viewHeight - (2 * redundantYSpace * saveScale);
     }
+
     private void fillMatrixXY()
     {
         matrix.getValues(m);
         matrixX = m[Matrix.MTRANS_X];
         matrixY = m[Matrix.MTRANS_Y];
     }
+
     private void scaleMatrixToBounds()
     {
-        if (Math.abs(matrixX + right / 2) > 0.5f)
-            matrix.postTranslate(-(matrixX + right / 2), 0);
-        if (Math.abs(matrixY + bottom / 2) > 0.5f)
-            matrix.postTranslate(0, -(matrixY + bottom / 2));
+        if (Math.abs(matrixX + outsideXSpace / 2) > 0.5f)
+            matrix.postTranslate(-(matrixX + outsideXSpace / 2), 0);
+        if (Math.abs(matrixY + outsideYSpace / 2) > 0.5f)
+            matrix.postTranslate(0, -(matrixY + outsideYSpace / 2));
     }
+
     @Override
     public void setImageBitmap(Bitmap bm) {
         setImageBitmap(bm, null);
@@ -580,15 +593,15 @@ public class TouchImageView extends ImageView {
 
     public void setImageBitmap(Bitmap bm, BitmapRegionDecodingDelegate decoder) {
         super.setImageBitmap(bm);
-        bmWidth = bm.getWidth();
-        bmHeight = bm.getHeight();
+        imgWidth = bm.getWidth();
+        imgHeight = bm.getHeight();
         regionDecoder = decoder;
 
         if (regionDecoder != null) {
-            origBmWidth = regionDecoder.getWidth();
-            origBmHeight = regionDecoder.getHeight();
+            origImgWidth = regionDecoder.getWidth();
+            origImgHeight = regionDecoder.getHeight();
         } else {
-            origBmWidth = origBmHeight = 0;
+            origImgWidth = origImgHeight = 0;
         }
 
         resetMatrix();
@@ -601,12 +614,12 @@ public class TouchImageView extends ImageView {
     // calc normalized and max scale, if view size hasn't been initialized yet,
     // set normal scale to min scale.
     private void resetMaxScale() {
-        if (width > 1) {
+        if (viewWidth > 1) {
             if (regionDecoder != null) {
-                normalizedScale = Math.max(origBmWidth / bmWidth,
-                        Math.max(bmWidth / width, bmHeight / height));
+                normalizedScale = Math.max(origImgWidth / imgWidth,
+                        Math.max(imgWidth / viewWidth, imgHeight / viewHeight));
             } else {
-                normalizedScale = Math.max(bmWidth / width, bmHeight / height);
+                normalizedScale = Math.max(imgWidth / viewWidth, imgHeight / viewHeight);
             }
         } else {
             normalizedScale = MIN_SCALE;
@@ -627,8 +640,8 @@ public class TouchImageView extends ImageView {
     protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec)
     {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        width = MeasureSpec.getSize(widthMeasureSpec);
-        height = MeasureSpec.getSize(heightMeasureSpec);
+        viewWidth = MeasureSpec.getSize(widthMeasureSpec);
+        viewHeight = MeasureSpec.getSize(heightMeasureSpec);
 
         resetMatrix();
     }
@@ -637,23 +650,25 @@ public class TouchImageView extends ImageView {
     private void resetMatrix() {
         //Fit to screen.
         float scale;
-        float scaleX =  width / bmWidth;
-        float scaleY = height / bmHeight;
+        float scaleX =  viewWidth / imgWidth;
+        float scaleY = viewHeight / imgHeight;
         scale = Math.min(scaleX, scaleY);
         matrix.setScale(scale, scale);
         setImageMatrix(matrix);
         saveScale = 1f;
 
         // Center the image
-        redundantYSpace = height - (scale * bmHeight) ;
-        redundantXSpace = width - (scale * bmWidth);
+        redundantYSpace = viewHeight - (scale * imgHeight) ;
+        redundantXSpace = viewWidth - (scale * imgWidth);
+        Assert.assertTrue(scaleEqual(redundantXSpace, 0)
+                || scaleEqual(redundantYSpace, 0));
         redundantYSpace /= (float)2;
         redundantXSpace /= (float)2;
 
         matrix.postTranslate(redundantXSpace, redundantYSpace);
 
-        origWidth = width - 2 * redundantXSpace;
-        origHeight = height - 2 * redundantYSpace;
+        fitBmpWidth = viewWidth - 2 * redundantXSpace;
+        fitBmpHeight = viewHeight - 2 * redundantYSpace;
         calcPadding();
         setImageMatrix(matrix);
 
@@ -695,7 +710,7 @@ public class TouchImageView extends ImageView {
         if (regionDecoder == null)
             return;
 
-        final float subsampleRate = origBmWidth / bmWidth ;
+        final float subsampleRate = origImgWidth / imgWidth;
 
         if (subsampleRate <= 1)
             return;
@@ -712,10 +727,10 @@ public class TouchImageView extends ImageView {
         rect = new RectF();
         rect.left = -m[Matrix.MTRANS_X];
         rect.top = -m[Matrix.MTRANS_Y];
-        rect.right = rect.left + width;
-        rect.bottom = rect.top + height;
+        rect.right = rect.left + viewWidth;
+        rect.bottom = rect.top + viewHeight;
         //Log.d(TAG, String.format("rect 1 = %d,%d %d*%d of canvas",
-        //        (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height()));
+        //        (int)rect.left, (int)rect.top, (int)rect.viewWidth(), (int)rect.height()));
 
         // rect2
         rect.left /= m[Matrix.MSCALE_X];
@@ -723,8 +738,8 @@ public class TouchImageView extends ImageView {
         rect.right /= m[Matrix.MSCALE_X];
         rect.bottom /= m[Matrix.MSCALE_Y];
         //Log.d(TAG, String.format("rect 2 = %d,%d %d*%d of background image (%d*%d) ",
-        //        (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
-        //        (int)bmWidth, (int)bmHeight));
+        //        (int)rect.left, (int)rect.top, (int)rect.viewWidth(), (int)rect.height(),
+        //        (int)imgWidth, (int)imgHeight));
 
         // rect3
         rect.left *= subsampleRate;
@@ -732,8 +747,8 @@ public class TouchImageView extends ImageView {
         rect.top *= subsampleRate;
         rect.bottom *= subsampleRate;
         //Log.d(TAG, String.format("rect 3 = %d,%d %d*%d of original image (%d*%d)",
-        //        (int)rect.left, (int)rect.top, (int)rect.width(), (int)rect.height(),
-        //        origBmWidth, origBmHeight));
+        //        (int)rect.left, (int)rect.top, (int)rect.viewWidth(), (int)rect.height(),
+        //        origImgWidth, origImgHeight));
 
 
         final Rect visibleRect = new Rect((int)rect.left, (int)rect.top, (int)rect.right, (int)rect.bottom);
@@ -749,15 +764,15 @@ public class TouchImageView extends ImageView {
                 int halfWidth = visibleRect.width() / 2;
                 int halfHeight = visibleRect.height() / 2;
                 while (opt.inSampleSize * 2 < subsampleRate
-                        && halfWidth > width * opt.inSampleSize
-                        && halfHeight > height * opt.inSampleSize) {
+                        && halfWidth > viewWidth * opt.inSampleSize
+                        && halfHeight > viewHeight * opt.inSampleSize) {
                     opt.inSampleSize *= 2;
                 }
 
                 //Log.d(TAG, String.format("clip region %d,%d %d*%d with inSampleSize=%d",
                 //        visibleRect.left,
                 //        visibleRect.top,
-                //        visibleRect.width(),
+                //        visibleRect.viewWidth(),
                 //        visibleRect.height(),
                 //        opt.inSampleSize));
 
@@ -765,31 +780,31 @@ public class TouchImageView extends ImageView {
                 if (visibleRect.top < 0) {
                     float heightScale = ((float)visibleRect.height() + 2 * visibleRect.top) / visibleRect.height();
                     overlapBmpDstRect.top = (int) (-visibleRect.top / subsampleRate * m[Matrix.MSCALE_Y]);
-                    overlapBmpDstRect.bottom = overlapBmpDstRect.top + (int) (height * heightScale);
+                    overlapBmpDstRect.bottom = overlapBmpDstRect.top + (int) (viewHeight * heightScale);
 
                     visibleRect.bottom += visibleRect.top;
                     visibleRect.top = 0;
                 } else {
                     overlapBmpDstRect.top = 0;
-                    overlapBmpDstRect.bottom = (int) height;
+                    overlapBmpDstRect.bottom = (int) viewHeight;
                 }
 
                 if (visibleRect.left < 0) {
                     float widthScale = ((float)visibleRect.width() + 2 * visibleRect.left) / visibleRect.width();
                     overlapBmpDstRect.left = (int) (- visibleRect.left / subsampleRate * m[Matrix.MSCALE_X]);
-                    overlapBmpDstRect.right = overlapBmpDstRect.left + (int) (width * widthScale);
+                    overlapBmpDstRect.right = overlapBmpDstRect.left + (int) (viewWidth * widthScale);
 
                     visibleRect.right += visibleRect.left;
                     visibleRect.left = 0;
                 } else {
                     overlapBmpDstRect.left = 0;
-                    overlapBmpDstRect.right = (int) width;
+                    overlapBmpDstRect.right = (int) viewWidth;
                 }
 
                 overlapBmp = null;
 
                 // check IllegalArgumentException("rectangle is outside the image");
-                if (!(visibleRect.right <= 0 || visibleRect.bottom <= 0 || visibleRect.left >= origBmWidth || visibleRect.top >= origBmHeight)) {
+                if (!(visibleRect.right <= 0 || visibleRect.bottom <= 0 || visibleRect.left >= origImgWidth || visibleRect.top >= origImgHeight)) {
                     // decode region async
                     Message msg = new Message();
                     msg.what = WorkThread.MSG_DECODE_REGION;
@@ -812,6 +827,10 @@ public class TouchImageView extends ImageView {
                 overlapBmp = null;
             }
         }
+    }
+
+    private static boolean scaleEqual(float s1, float s2) {
+        return Math.abs(s1 - s2) < 0.01;
     }
 
     private void dumpOverlapBmp() {
@@ -853,30 +872,29 @@ public class TouchImageView extends ImageView {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             float mScaleFactor = (float)Math.min(Math.max(.95f, detector.getScaleFactor()), 1.05);
-            float origScale = saveScale;
-            saveScale *= mScaleFactor;
-            mScaleFactor = limitScale(mScaleFactor, origScale);
+            mScaleFactor = limitScale(mScaleFactor);
 
             if (mScaleFactor > 0.99 && mScaleFactor < 1.01)
                 return true;
 
-            right = width * saveScale - width - (2 * redundantXSpace * saveScale);
-            bottom = height * saveScale - height - (2 * redundantYSpace * saveScale);
-            if (origWidth * saveScale <= width || origHeight * saveScale <= height) {
-                matrix.postScale(mScaleFactor, mScaleFactor, width / 2, height / 2);
+            saveScale *= mScaleFactor;
+            calcPadding();
+
+            if (fitBmpWidth * saveScale <= viewWidth || fitBmpHeight * saveScale <= viewHeight) {
+                matrix.postScale(mScaleFactor, mScaleFactor, viewWidth / 2, viewHeight / 2);
                 if (mScaleFactor < 1) {
                     matrix.getValues(m);
                     float x = m[Matrix.MTRANS_X];
                     float y = m[Matrix.MTRANS_Y];
                     if (mScaleFactor < 1) {
-                        if (Math.round(origWidth * saveScale) < width) {
-                            if (y < -bottom)
-                                matrix.postTranslate(0, -(y + bottom));
+                        if (Math.round(fitBmpWidth * saveScale) < viewWidth) {
+                            if (y < -outsideYSpace)
+                                matrix.postTranslate(0, -(y + outsideYSpace));
                             else if (y > 0)
                                 matrix.postTranslate(0, -y);
                         } else {
-                            if (x < -right)
-                                matrix.postTranslate(-(x + right), 0);
+                            if (x < -outsideXSpace)
+                                matrix.postTranslate(-(x + outsideXSpace), 0);
                             else if (x > 0)
                                 matrix.postTranslate(-x, 0);
                         }
@@ -888,12 +906,12 @@ public class TouchImageView extends ImageView {
                 float x = m[Matrix.MTRANS_X];
                 float y = m[Matrix.MTRANS_Y];
                 if (mScaleFactor < 1) {
-                    if (x < -right)
-                        matrix.postTranslate(-(x + right), 0);
+                    if (x < -outsideXSpace)
+                        matrix.postTranslate(-(x + outsideXSpace), 0);
                     else if (x > 0)
                         matrix.postTranslate(-x, 0);
-                    if (y < -bottom)
-                        matrix.postTranslate(0, -(y + bottom));
+                    if (y < -outsideYSpace)
+                        matrix.postTranslate(0, -(y + outsideYSpace));
                     else if (y > 0)
                         matrix.postTranslate(0, -y);
                 }
