@@ -122,7 +122,6 @@ public class TouchImageView extends ImageView {
     PointF mid = new PointF();
     PointF start = new PointF();
     float[] m;
-    float matrixX, matrixY;
 
     float oldDist = 1f;
 
@@ -265,7 +264,6 @@ public class TouchImageView extends ImageView {
                 if (mScaleDetector != null) {
                     ((ScaleGestureDetector) mScaleDetector).onTouchEvent(rawEvent);
                 }
-                fillMatrixXY();
                 PointF curr = new PointF(event.getX(), event.getY());
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
@@ -401,14 +399,17 @@ public class TouchImageView extends ImageView {
                 if (fitBmpWidth * saveScale <= viewWidth || fitBmpHeight * saveScale <= viewHeight) {
                     matrix.postScale(mScaleFactor, mScaleFactor, viewWidth / 2, viewHeight / 2);
                     if (mScaleFactor < 1) {
-                        fillMatrixXY();
                         if (mScaleFactor < 1) {
                             scaleMatrixToBounds();
                         }
                     }
                 } else {
                     matrix.postScale(mScaleFactor, mScaleFactor, center.x, center.y);
-                    fillMatrixXY();
+
+                    matrix.getValues(m);
+                    float matrixX = m[Matrix.MTRANS_X];
+                    float matrixY = m[Matrix.MTRANS_Y];
+
                     if (mScaleFactor < 1) {
                         if (matrixX < -outsideXSpace)
                             matrix.postTranslate(-(matrixX + outsideXSpace), 0);
@@ -440,7 +441,6 @@ public class TouchImageView extends ImageView {
 
     public void resetScale()
     {
-        fillMatrixXY();
         matrix.postScale(MIN_SCALE / saveScale, MIN_SCALE / saveScale, viewWidth / 2, viewHeight / 2);
         saveScale = MIN_SCALE;
 
@@ -520,9 +520,13 @@ public class TouchImageView extends ImageView {
 
     private void checkAndSetTranslate(float deltaX, float deltaY)
     {
+        matrix.getValues(m);
+        float matrixX = m[Matrix.MTRANS_X];
+        float matrixY = m[Matrix.MTRANS_Y];
+
         float scaleWidth = Math.round(fitBmpWidth * saveScale);
         float scaleHeight = Math.round(fitBmpHeight * saveScale);
-        fillMatrixXY();
+
         if (scaleWidth < viewWidth) {
             deltaX = 0;
             if (matrixY + deltaY > 0)
@@ -552,7 +556,10 @@ public class TouchImageView extends ImageView {
     }
     private void checkSiding()
     {
-        fillMatrixXY();
+        matrix.getValues(m);
+        float matrixX = m[Matrix.MTRANS_X];
+        float matrixY = m[Matrix.MTRANS_Y];
+
         //Log.d(TAG, "x: " + matrixX + " y: " + matrixY + " left: " + outsideXSpace / 2 + " top:" + outsideYSpace / 2);
         float scaleWidth = Math.round(fitBmpWidth * saveScale);
         float scaleHeight = Math.round(fitBmpHeight * saveScale);
@@ -571,15 +578,12 @@ public class TouchImageView extends ImageView {
         outsideYSpace = viewHeight * saveScale - viewHeight - (2 * redundantYSpace * saveScale);
     }
 
-    private void fillMatrixXY()
-    {
-        matrix.getValues(m);
-        matrixX = m[Matrix.MTRANS_X];
-        matrixY = m[Matrix.MTRANS_Y];
-    }
-
     private void scaleMatrixToBounds()
     {
+        matrix.getValues(m);
+        float matrixX = m[Matrix.MTRANS_X];
+        float matrixY = m[Matrix.MTRANS_Y];
+
         if (Math.abs(matrixX + outsideXSpace / 2) > 0.5f)
             matrix.postTranslate(-(matrixX + outsideXSpace / 2), 0);
         if (Math.abs(matrixY + outsideYSpace / 2) > 0.5f)
