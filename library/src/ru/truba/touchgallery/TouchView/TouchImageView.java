@@ -817,11 +817,13 @@ public class TouchImageView extends ImageView {
                         @Override
                         public void run() {
                             overlapBmp = regionDecoder.decodeRegion(visibleRect, opt);
-                            Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
-                                    overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
+                            if (overlapBmp != null) {
+                                Log.d(TAG, String.format("overlapBmp, %dx%d, src rect %s, dst rect %s",
+                                        overlapBmp.getWidth(), overlapBmp.getHeight(), visibleRect, overlapBmpDstRect));
 
-                            // dump for testing
-                            if (false) dumpOverlapBmp();
+                                // dump for testing
+                                if (false) dumpOverlapBmp();
+                            }
                         }
                     };
                     workThread.removeMessage(msg.what);
